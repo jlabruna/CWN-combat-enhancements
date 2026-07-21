@@ -19,5 +19,15 @@
   "CWNCE.Chat.Miss": "MISS",
   "CWNCE.Chat.OutOfRange": "OUT OF RANGE",
   "CWNCE.Chat.Unknown": "CHECK MANUALLY",
-  "CWNCE.Chat.WeaponRanges": "Weapon range: {normal} m normal / {maximum} m maximum"
+  "CWNCE.Chat.WeaponRanges": "Weapon range: {normal} m normal / {maximum} m maximum",
+  "CWNCE.Chat.DamagePreview": "Will apply {amount} damage",
+  "CWNCE.Chat.NormalDamagePreview": "Normal damage {amount} (Trauma {roll} vs TT {target})",
+  "CWNCE.Chat.TraumaDamagePreview": "Trauma damage {amount} (Trauma {roll} vs TT {target})",
+  "CWNCE.Chat.ApplyDamage": "Apply damage to {count} HIT target(s)",
+  "CWNCE.Chat.ApplyDamageHint": "Applies normal or Trauma damage separately to every target marked HIT.",
+  "CWNCE.Chat.DamageApplied": "Damage applied to {count} HIT target(s).",
+  "CWNCE.Chat.AlreadyApplied": "Damage has already been applied from this attack card.",
+  "CWNCE.Chat.SceneUnavailable": "The attack targets are not available on the current scene.",
+  "CWNCE.Chat.NoDamageTargets": "No HIT targets were available to receive damage.",
+  "CWNCE.Chat.DamageFailed": "Damage application failed. Check the console and use SWNR's standard buttons if needed."
 }

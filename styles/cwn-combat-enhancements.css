@@ -55,6 +55,36 @@
   text-align: center;
 }
 
+.cwnce-damage-preview {
+  color: var(--color-text-dark-secondary, #555);
+  font-size: 0.75rem;
+  margin-top: 0.2rem;
+  text-align: center;
+}
+
+.cwnce-damage-action {
+  border-top: 1px dashed var(--color-border-light-2, #777);
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+}
+
+.cwnce-apply-damage {
+  width: 100%;
+}
+
+.cwnce-damage-hint,
+.cwnce-damage-applied {
+  color: var(--color-text-dark-secondary, #555);
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+  text-align: center;
+}
+
+.cwnce-damage-applied {
+  color: #116b32;
+  font-weight: 700;
+}
+
 .cwnce-hit .cwnce-outcome {
   color: #116b32;
 }
@@ -76,6 +106,10 @@
 }
 
 .theme-dark .cwnce-hit .cwnce-outcome {
+  color: #58c77c;
+}
+
+.theme-dark .cwnce-damage-applied {
   color: #58c77c;
 }
 

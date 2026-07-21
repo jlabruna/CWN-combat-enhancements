@@ -3,7 +3,7 @@
 A minimal Foundry VTT v13 companion module for **Cities Without Number** games
 running on **Systems Without Number Redux (SWNR) 2.3.0**.
 
-## v0.1 scope
+## Current scope
 
 - Captures the user's targeted tokens when an SWNR weapon attack is rolled.
 - Detects melee attacks through `weapon.system.isMelee`.
@@ -13,10 +13,19 @@ running on **Systems Without Number Redux (SWNR) 2.3.0**.
 - Applies CWN's −2 modifier beyond normal range and up to maximum range.
 - Reports hit, miss, or out of range separately for each target.
 - Keeps exact enemy AC hidden from players by default; GMs always see it.
+- Gives the GM one **Apply damage to HIT targets** action on attack cards with a
+  completed damage roll.
+- Applies damage to every attack-time target marked HIT, even when the weapon
+  would ordinarily attack only one target. Target selection is treated as the
+  user's declaration of every intended damage recipient.
+- Compares the attack's Trauma Die against each target's modified Trauma Target
+  and applies either normal or multiplied Trauma damage independently.
+- Delegates actual health changes to SWNR so Damage Reduction, Soak, HP, defeated
+  status, and floating damage numbers retain the system's standard behavior.
 
-The module does not change the original attack roll, spend ammunition, apply
-damage, update actors, or automate cover. The adjusted result is displayed below
-SWNR's existing card.
+The module does not change the original attack roll, spend ammunition, or
+automate cover. Target checks and the optional GM damage action are displayed
+below SWNR's existing card.
 
 ## Install on The Forge
 
@@ -30,7 +39,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.1.1.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.2.0.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -50,7 +59,7 @@ meters, feet, yards, kilometres, or miles.
 - Character AC derivation: `module/data/actors/actor-character.mjs`.
 - Ranged AC: `actor.system.ac`; melee AC: `actor.system.meleeAc`.
 
-## Known v0.1 limitations
+## Known limitations
 
 - Results require the attacker's token and targets to be on the currently viewed
   scene when the card renders. Otherwise distance is marked unavailable.
@@ -62,7 +71,31 @@ meters, feet, yards, kilometres, or miles.
   markup change may require a compatibility update.
 - Multi-level/elevation distance and wall/line-of-sight checks are not included.
 
+## Target-aware damage behavior
+
+- The damage action is GM-only because it can update NPC actors.
+- It appears when SWNR rolls damage on the original attack card. If the world is
+  configured to roll damage later in a separate chat message, use SWNR's normal
+  damage buttons for that attack.
+- Every captured target marked HIT receives damage. The module intentionally
+  does not restrict ordinary weapons to one recipient; targeting multiple tokens
+  is treated as an explicit request to apply that attack to all successful ones.
+- Targets marked MISS or OUT OF RANGE never receive damage from the action.
+- Each target is processed separately through SWNR's health helper so one
+  target's Damage Reduction or Soak cannot reduce another target's damage.
+- After a successful application, the chat message records that damage was
+  applied and replaces the action with a completed summary. SWNR's original
+  buttons remain available for GM corrections or exceptional rules.
+
 ## Changes
+
+### 0.2.0
+
+- Added target-aware normal and Trauma damage application for all targets marked
+  HIT by the attack card.
+- Added per-target modified Trauma Target checks.
+- Preserved SWNR's existing Damage Reduction, Soak, HP, and defeat handling.
+- Added natural 1 automatic misses and natural 20 automatic hits.
 
 ### 0.1.1
 

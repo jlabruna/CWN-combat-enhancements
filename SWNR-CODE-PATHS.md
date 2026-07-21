@@ -52,6 +52,24 @@ For the module, the correct comparison is therefore:
 - ranged weapon: `target.actor.system.ac`
 - melee weapon: `target.actor.system.meleeAc`
 
+Trauma checks use the target's derived
+`target.actor.system.modifiedTraumaTarget`, falling back to
+`target.actor.system.traumaTarget` when necessary.
+
+## v0.2 damage integration
+
+The attack card renders normal damage, the Trauma Die, and (when SWNR's fixed
+threshold of 6 is met) multiplied Trauma damage as HTML dice rolls. The module
+captures the normal and Trauma totals when the message is created, then compares
+the Trauma result against each victim's own derived Trauma Target.
+
+SWNR exports `applyHealthDrop()` from `module/helpers/chat.mjs`. That helper reads
+controlled tokens and mutates its local damage value while processing armor. The
+companion therefore controls and processes each HIT target separately, awaits
+the helper, and restores the user's original controlled tokens afterward.
+Calling the helper once with every target controlled could incorrectly carry one
+target's Soak or Damage Reduction into the next target.
+
 ## Weapon type and range
 
 `module/data/items/item-weapon.mjs` defines weapon fields:

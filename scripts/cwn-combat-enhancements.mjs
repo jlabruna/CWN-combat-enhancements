@@ -1,5 +1,8 @@
 const MODULE_ID = "cwn-combat-enhancements";
 const ATTACK_FLAG = "attack";
+const DAMAGE_APPLICATION_FLAG = "damageApplication";
+
+let swnrApplyHealthDrop = null;
 
 Hooks.once("init", () => {
   game.settings.register(MODULE_ID, "showExactAc", {
@@ -42,6 +45,7 @@ Hooks.on("preCreateChatMessage", (message, data, _options, userId) => {
     sceneId: attackerToken?.parent?.id ?? canvas.scene?.id ?? null,
     attackerTokenId: attackerToken?.id ?? message.speaker?.token ?? null,
     targets: targetRefs,
+    damage: source.damage,
   };
 
   message.updateSource({ [`flags.${MODULE_ID}.${ATTACK_FLAG}`]: attackContext });
@@ -67,8 +71,22 @@ Hooks.on("renderChatMessage", (message, html) => {
   const attackTotal = Number(message.rolls?.[0]?.total);
   if (weapon?.type !== "weapon" || !Number.isFinite(attackTotal)) return;
 
-  const results = buildResults({ context, weapon, attackTotal });
-  card.append(buildResultsElement(results, weapon, attackTotal));
+  const naturalAttackRoll = Number(message.rolls?.[0]?.dice?.[0]?.total);
+  const results = buildResults({
+    context,
+    weapon,
+    attackTotal,
+    naturalAttackRoll,
+  });
+  card.append(
+    buildResultsElement({
+      results,
+      weapon,
+      attackTotal,
+      damage: context.damage,
+      message,
+    }),
+  );
 });
 
 function readAttackCardSource(content) {
@@ -81,7 +99,32 @@ function readAttackCardSource(content) {
   return {
     actorId: card.dataset.actorId,
     itemId: card.dataset.itemId,
+    damage: readDamageData(card),
   };
+}
+
+function readDamageData(card) {
+  const damageRolls = Array.from(
+    card.querySelectorAll("span.roll.roll-damage:not(.roll-shock)"),
+  );
+  const traumaRoll = Array.from(card.querySelectorAll("span.roll")).find(
+    (element) =>
+      !element.classList.contains("roll-hit") &&
+      !element.classList.contains("roll-damage") &&
+      !element.classList.contains("roll-shock"),
+  );
+
+  return {
+    normal: readDiceTotal(damageRolls[0]),
+    traumaRoll: readDiceTotal(traumaRoll),
+    traumaDamage: readDiceTotal(damageRolls[1]),
+  };
+}
+
+function readDiceTotal(element) {
+  if (!element) return null;
+  const value = Number(element.querySelector(".dice-total")?.textContent?.trim());
+  return Number.isFinite(value) ? value : null;
 }
 
 function resolveAttackerToken(speaker, actorId) {
@@ -107,7 +150,7 @@ function resolveContextActor(context) {
   return tokenDocument?.actor ?? game.actors.get(context.actorId);
 }
 
-function buildResults({ context, weapon, attackTotal }) {
+function buildResults({ context, weapon, attackTotal, naturalAttackRoll }) {
   const isMelee = Boolean(weapon.system.isMelee);
   const normalRange = Number(weapon.system.range?.normal);
   const maximumRange = Number(weapon.system.range?.max);
@@ -125,6 +168,9 @@ function buildResults({ context, weapon, attackTotal }) {
     }
 
     const ac = Number(isMelee ? targetActor.system.meleeAc : targetActor.system.ac);
+    const traumaTarget = toFiniteNumber(
+      targetActor.system.modifiedTraumaTarget ?? targetActor.system.traumaTarget,
+    );
     const distance = measureDistanceInMeters({
       scene,
       attackerTokenId: context.attackerTokenId,
@@ -148,12 +194,17 @@ function buildResults({ context, weapon, attackTotal }) {
     const adjustedTotal = attackTotal + rangeModifier;
     let result = "unknown";
     if (rangeBand === "out") result = "out";
+    else if (naturalAttackRoll === 1) result = "miss";
+    else if (naturalAttackRoll === 20) result = "hit";
     else if (Number.isFinite(ac)) result = adjustedTotal >= ac ? "hit" : "miss";
 
     return {
       status: "ready",
       name: tokenDocument.name,
+      sceneId: targetRef.sceneId,
+      tokenId: targetRef.tokenId,
       ac,
+      traumaTarget,
       isMelee,
       distance,
       rangeBand,
@@ -223,7 +274,7 @@ function convertToMeters(value, units) {
   return normalized in factors ? value * factors[normalized] : NaN;
 }
 
-function buildResultsElement(results, weapon, attackTotal) {
+function buildResultsElement({ results, weapon, attackTotal, damage, message }) {
   const section = document.createElement("section");
   section.className = "cwnce-results";
 
@@ -274,7 +325,31 @@ function buildResultsElement(results, weapon, attackTotal) {
     outcome.className = "cwnce-outcome";
     outcome.textContent = formatOutcome(result.result);
     target.append(outcome);
+
+    if (game.user.isGM && result.result === "hit") {
+      const decision = decideDamage(result, damage, weapon);
+      if (decision) {
+        const damagePreview = document.createElement("div");
+        damagePreview.className = "cwnce-damage-preview";
+        damagePreview.textContent = formatDamageDecision(decision);
+        target.append(damagePreview);
+      }
+    }
+
     section.append(target);
+  }
+
+  if (game.user.isGM) {
+    const hitResults = results.filter(
+      (result) => result.status === "ready" && result.result === "hit",
+    );
+    const damageAction = buildDamageAction({
+      hitResults,
+      damage,
+      weapon,
+      message,
+    });
+    if (damageAction) section.append(damageAction);
   }
 
   if (!weapon.system.isMelee) {
@@ -288,6 +363,174 @@ function buildResultsElement(results, weapon, attackTotal) {
   }
 
   return section;
+}
+
+function decideDamage(result, damage, weapon) {
+  const normalDamage = toFiniteNumber(damage?.normal);
+  if (normalDamage === null) return null;
+
+  const traumaRoll = toFiniteNumber(damage?.traumaRoll);
+  const traumaTarget = toFiniteNumber(result.traumaTarget);
+  const traumaRating = toFiniteNumber(weapon.system.trauma?.rating);
+  const isTraumatic =
+    traumaRoll !== null &&
+    traumaTarget !== null &&
+    traumaRating !== null &&
+    traumaRoll >= traumaTarget;
+
+  return {
+    amount: isTraumatic ? normalDamage * traumaRating : normalDamage,
+    kind: isTraumatic ? "trauma" : "normal",
+    normalDamage,
+    traumaRoll,
+    traumaTarget,
+    traumaRating,
+  };
+}
+
+function formatDamageDecision(decision) {
+  if (decision.kind === "trauma") {
+    return game.i18n.format("CWNCE.Chat.TraumaDamagePreview", {
+      amount: decision.amount,
+      roll: decision.traumaRoll,
+      target: decision.traumaTarget,
+    });
+  }
+
+  if (decision.traumaRoll !== null && decision.traumaTarget !== null) {
+    return game.i18n.format("CWNCE.Chat.NormalDamagePreview", {
+      amount: decision.amount,
+      roll: decision.traumaRoll,
+      target: decision.traumaTarget,
+    });
+  }
+
+  return game.i18n.format("CWNCE.Chat.DamagePreview", {
+    amount: decision.amount,
+  });
+}
+
+function buildDamageAction({ hitResults, damage, weapon, message }) {
+  if (!hitResults.length || toFiniteNumber(damage?.normal) === null) return null;
+
+  const container = document.createElement("div");
+  container.className = "cwnce-damage-action";
+
+  const existing = message.getFlag(MODULE_ID, DAMAGE_APPLICATION_FLAG);
+  if (existing?.entries?.length) {
+    const summary = document.createElement("div");
+    summary.className = "cwnce-damage-applied";
+    summary.textContent = game.i18n.format("CWNCE.Chat.DamageApplied", {
+      count: existing.entries.length,
+    });
+    container.append(summary);
+    return container;
+  }
+
+  const button = document.createElement("button");
+  button.type = "button";
+  button.className = "cwnce-apply-damage";
+  button.textContent = game.i18n.format("CWNCE.Chat.ApplyDamage", {
+    count: hitResults.length,
+  });
+  button.addEventListener("click", async (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    button.disabled = true;
+    await applyDamageToHitTargets({
+      hitResults,
+      damage,
+      weapon,
+      message,
+    });
+  });
+
+  const hint = document.createElement("div");
+  hint.className = "cwnce-damage-hint";
+  hint.textContent = game.i18n.localize("CWNCE.Chat.ApplyDamageHint");
+  container.append(button, hint);
+  return container;
+}
+
+async function applyDamageToHitTargets({ hitResults, damage, weapon, message }) {
+  if (message.getFlag(MODULE_ID, DAMAGE_APPLICATION_FLAG)?.entries?.length) {
+    ui.notifications?.warn(game.i18n.localize("CWNCE.Chat.AlreadyApplied"));
+    return;
+  }
+
+  if (!canvas.ready) {
+    ui.notifications?.error(game.i18n.localize("CWNCE.Chat.SceneUnavailable"));
+    return;
+  }
+
+  const originalControlledIds = canvas.tokens.controlled.map((token) => token.id);
+  const entries = [];
+
+  try {
+    const applyHealthDrop = await getSwnrApplyHealthDrop();
+
+    for (const result of hitResults) {
+      if (result.sceneId !== canvas.scene?.id) continue;
+      const token = canvas.tokens.get(result.tokenId);
+      const decision = decideDamage(result, damage, weapon);
+      if (!token?.actor || !decision) continue;
+
+      canvas.tokens.releaseAll();
+      token.control({ releaseOthers: false });
+      await applyHealthDrop(decision.amount);
+
+      entries.push({
+        sceneId: result.sceneId,
+        tokenId: result.tokenId,
+        name: result.name,
+        amount: decision.amount,
+        kind: decision.kind,
+        traumaRoll: decision.traumaRoll,
+        traumaTarget: decision.traumaTarget,
+      });
+
+      await message.setFlag(MODULE_ID, DAMAGE_APPLICATION_FLAG, {
+        entries,
+        userId: game.user.id,
+        appliedAt: Date.now(),
+      });
+    }
+
+    if (!entries.length) {
+      ui.notifications?.warn(game.i18n.localize("CWNCE.Chat.NoDamageTargets"));
+    } else {
+      ui.notifications?.info(
+        game.i18n.format("CWNCE.Chat.DamageApplied", { count: entries.length }),
+      );
+    }
+  } catch (error) {
+    console.error(`${MODULE_ID} | Failed to apply damage`, error);
+    ui.notifications?.error(game.i18n.localize("CWNCE.Chat.DamageFailed"));
+  } finally {
+    canvas.tokens.releaseAll();
+    for (const tokenId of originalControlledIds) {
+      canvas.tokens.get(tokenId)?.control({ releaseOthers: false });
+    }
+  }
+}
+
+async function getSwnrApplyHealthDrop() {
+  if (swnrApplyHealthDrop) return swnrApplyHealthDrop;
+
+  const path = foundry.utils.getRoute("systems/swnr/module/helpers/chat.mjs");
+  const helpers = await import(path);
+  if (typeof helpers.applyHealthDrop !== "function") {
+    throw new Error("SWNR applyHealthDrop helper is unavailable.");
+  }
+
+  swnrApplyHealthDrop = helpers.applyHealthDrop;
+  return swnrApplyHealthDrop;
+}
+
+function toFiniteNumber(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
 }
 
 function makeNotice(text) {
