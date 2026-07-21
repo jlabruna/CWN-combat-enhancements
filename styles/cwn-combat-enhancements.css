@@ -22,6 +22,10 @@
   border-left-color: #16803c;
 }
 
+.cwnce-target.cwnce-trauma {
+  border-left-color: #1769aa;
+}
+
 .cwnce-target.cwnce-miss,
 .cwnce-target.cwnce-out {
   border-left-color: #a62929;
@@ -89,6 +93,15 @@
   color: #116b32;
 }
 
+.cwnce-trauma .cwnce-outcome,
+.cwnce-trauma .cwnce-damage-preview {
+  color: #1769aa;
+}
+
+.cwnce-trauma .cwnce-damage-preview {
+  font-weight: 700;
+}
+
 .cwnce-miss .cwnce-outcome,
 .cwnce-out .cwnce-outcome {
   color: #8d2020;
@@ -107,6 +120,11 @@
 
 .theme-dark .cwnce-hit .cwnce-outcome {
   color: #58c77c;
+}
+
+.theme-dark .cwnce-trauma .cwnce-outcome,
+.theme-dark .cwnce-trauma .cwnce-damage-preview {
+  color: #60b9ff;
 }
 
 .theme-dark .cwnce-damage-applied {

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.4.0
+
+- Successful attacks that also beat a target's Trauma Target are now displayed
+  as a blue **TRAUMA HIT!** instead of a standard green **HIT**.
+- Trauma outcomes are determined separately for every target.
+- Misses and out-of-range attacks remain misses regardless of the Trauma Die.
+
 ## 0.3.1
 
 - Fixed NPC Soak incorrectly stacking from multiple active body-armour suits.

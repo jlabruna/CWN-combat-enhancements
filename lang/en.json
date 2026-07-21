@@ -19,6 +19,7 @@
   "CWNCE.Chat.RangeOut": "Out of range",
   "CWNCE.Chat.RangeUnknown": "Unknown",
   "CWNCE.Chat.Hit": "HIT",
+  "CWNCE.Chat.TraumaHit": "TRAUMA HIT!",
   "CWNCE.Chat.Miss": "MISS",
   "CWNCE.Chat.OutOfRange": "OUT OF RANGE",
   "CWNCE.Chat.Unknown": "CHECK MANUALLY",

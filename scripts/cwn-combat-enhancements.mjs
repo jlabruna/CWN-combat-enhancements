@@ -449,8 +449,12 @@ function buildResultsElement({ results, weapon, attackTotal, damage, message }) 
       continue;
     }
 
+    const damageDecision =
+      result.result === "hit" ? decideDamage(result, damage, weapon) : null;
+    const displayOutcome = classifyDisplayOutcome(result, damageDecision);
+
     const target = document.createElement("article");
-    target.className = `cwnce-target cwnce-${result.result}`;
+    target.className = `cwnce-target cwnce-${displayOutcome}`;
 
     const name = document.createElement("div");
     name.className = "cwnce-target-name";
@@ -480,15 +484,14 @@ function buildResultsElement({ results, weapon, attackTotal, damage, message }) 
 
     const outcome = document.createElement("div");
     outcome.className = "cwnce-outcome";
-    outcome.textContent = formatOutcome(result.result);
+    outcome.textContent = formatOutcome(displayOutcome);
     target.append(outcome);
 
     if (game.user.isGM && result.result === "hit") {
-      const decision = decideDamage(result, damage, weapon);
-      if (decision) {
+      if (damageDecision) {
         const damagePreview = document.createElement("div");
         damagePreview.className = "cwnce-damage-preview";
-        damagePreview.textContent = formatDamageDecision(decision);
+        damagePreview.textContent = formatDamageDecision(damageDecision);
         target.append(damagePreview);
       }
     }
@@ -520,6 +523,16 @@ function buildResultsElement({ results, weapon, attackTotal, damage, message }) 
   }
 
   return section;
+}
+
+/**
+ * Trauma only changes the displayed outcome after the attack itself is a hit.
+ * A high Trauma roll can never turn a miss or out-of-range attack into a
+ * Trauma Hit.
+ */
+function classifyDisplayOutcome(result, damageDecision) {
+  if (result.result !== "hit") return result.result;
+  return damageDecision?.kind === "trauma" ? "trauma" : "hit";
 }
 
 function decideDamage(result, damage, weapon) {
@@ -730,6 +743,7 @@ function formatRangeBand(rangeBand) {
 function formatOutcome(result) {
   const keys = {
     hit: "CWNCE.Chat.Hit",
+    trauma: "CWNCE.Chat.TraumaHit",
     miss: "CWNCE.Chat.Miss",
     out: "CWNCE.Chat.OutOfRange",
     unknown: "CWNCE.Chat.Unknown",
