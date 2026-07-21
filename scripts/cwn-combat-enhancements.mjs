@@ -1,6 +1,7 @@
 const MODULE_ID = "cwn-combat-enhancements";
 const ATTACK_FLAG = "attack";
 const DAMAGE_APPLICATION_FLAG = "damageApplication";
+const NPC_ARMOR_PATCH = Symbol.for("cwn-combat-enhancements.npcArmorPatch");
 
 let swnrApplyHealthDrop = null;
 
@@ -14,7 +15,116 @@ Hooks.once("init", () => {
     default: false,
     restricted: true,
   });
+
+  game.settings.register(MODULE_ID, "automateNpcArmor", {
+    name: "CWNCE.Settings.AutomateNpcArmor.Name",
+    hint: "CWNCE.Settings.AutomateNpcArmor.Hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    restricted: true,
+  });
 });
+
+Hooks.once("setup", () => {
+  installNpcArmorCalculation();
+});
+
+/**
+ * Extend SWNR's NPC derived-data preparation without storing calculated AC on
+ * the actor. The original manual fields remain the fallback whenever no active
+ * armor improves them.
+ */
+function installNpcArmorCalculation() {
+  if (game.system.id !== "swnr") return;
+
+  const NpcDataModel = CONFIG.Actor.dataModels?.npc;
+  const prototype = NpcDataModel?.prototype;
+  if (!prototype || prototype[NPC_ARMOR_PATCH]) return;
+
+  const prepareDerivedData = prototype.prepareDerivedData;
+  if (typeof prepareDerivedData !== "function") {
+    console.warn(`${MODULE_ID} | SWNR NPC data model is unavailable; NPC armor automation was not installed.`);
+    return;
+  }
+
+  Object.defineProperty(prototype, NPC_ARMOR_PATCH, { value: true });
+  prototype.prepareDerivedData = function (...args) {
+    const result = prepareDerivedData.apply(this, args);
+    if (game.settings.get(MODULE_ID, "automateNpcArmor")) {
+      applyNpcArmorCalculation(this);
+    }
+    return result;
+  };
+}
+
+/**
+ * Correct SWNR 2.3.0's NPC armor derivation. SWNR currently leaves NPC AC at
+ * its manual values and counts every owned armor item's Soak and Trauma bonus,
+ * even when its use checkbox is clear.
+ */
+function applyNpcArmorCalculation(system) {
+  const actor = system?.parent;
+  if (
+    !actor ||
+    actor.type !== "npc" ||
+    !game.settings.get("swnr", "useCWNArmor")
+  ) return;
+
+  const activeArmor = Array.from(actor.items ?? []).filter(
+    (item) => item.type === "armor" && item.system?.use === true,
+  );
+  const bodyArmor = activeArmor.filter((item) => !item.system?.shield);
+  const shields = activeArmor.filter((item) => item.system?.shield);
+  const primaryArmor = bodyArmor.reduce((best, item) => {
+    if (!best) return item;
+    const itemAc = toFiniteNumber(item.system?.ac) ?? -Infinity;
+    const bestAc = toFiniteNumber(best.system?.ac) ?? -Infinity;
+    return itemAc > bestAc ? item : best;
+  }, null);
+
+  const source = actor._source?.system ?? {};
+  const fallbackRangedAc =
+    toFiniteNumber(source.baseAc) ?? toFiniteNumber(system.baseAc) ?? 10;
+  const fallbackMeleeAc =
+    toFiniteNumber(source.meleeAc) ?? toFiniteNumber(system.meleeAc) ?? fallbackRangedAc;
+
+  let rangedAc = Math.max(
+    fallbackRangedAc,
+    toFiniteNumber(primaryArmor?.system?.ac) ?? fallbackRangedAc,
+  );
+  let meleeAc = Math.max(
+    fallbackMeleeAc,
+    toFiniteNumber(primaryArmor?.system?.meleeAc) ?? fallbackMeleeAc,
+  );
+
+  for (const shield of shields) {
+    rangedAc += toFiniteNumber(shield.system?.shieldACBonus) ?? 0;
+    meleeAc += toFiniteNumber(shield.system?.shieldMeleeACBonus) ?? 0;
+  }
+
+  system.ac = rangedAc;
+  system.meleeAc = meleeAc;
+
+  const baseSoak = system.baseSoakTotal ?? source.baseSoakTotal ?? {};
+  const soakTotal = {
+    value: toFiniteNumber(baseSoak.value) ?? 0,
+    max: toFiniteNumber(baseSoak.max) ?? 0,
+  };
+  for (const armor of activeArmor) {
+    soakTotal.value += toFiniteNumber(armor.system?.soak?.value) ?? 0;
+    soakTotal.max += toFiniteNumber(armor.system?.soak?.max) ?? 0;
+  }
+  system.soakTotal = soakTotal;
+
+  if (game.settings.get("swnr", "useTrauma")) {
+    const traumaTarget = toFiniteNumber(system.traumaTarget) ?? 6;
+    const armorPenalty =
+      toFiniteNumber(primaryArmor?.system?.traumaDiePenalty) ?? 0;
+    system.modifiedTraumaTarget = traumaTarget + armorPenalty;
+  }
+}
 
 /**
  * SWNR does not persist targets on weapon attack messages. Capture the rolling

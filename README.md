@@ -22,6 +22,9 @@ running on **Systems Without Number Redux (SWNR) 2.3.0**.
   and applies either normal or multiplied Trauma damage independently.
 - Delegates actual health changes to SWNR so Damage Reduction, Soak, HP, defeated
   status, and floating damage numbers retain the system's standard behavior.
+- Calculates NPC ranged AC, melee AC, Soak, and Trauma protection from armor
+  whose use checkbox is ticked. Manual NPC AC remains the fallback when active
+  armor does not improve it.
 
 The module does not change the original attack roll, spend ammunition, or
 automate cover. Target checks and the optional GM damage action are displayed
@@ -39,7 +42,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.2.0.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.3.0.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -88,6 +91,12 @@ meters, feet, yards, kilometres, or miles.
   buttons remain available for GM corrections or exceptional rules.
 
 ## Changes
+
+### 0.3.0
+
+- Added active-armor-derived AC, Soak, and Trauma Target protection for NPCs.
+- Retained the NPC's manual Base AC and Melee AC as fallback values.
+- Added a world setting to disable NPC armor automation.
 
 ### 0.2.0
 

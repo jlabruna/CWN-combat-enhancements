@@ -2,7 +2,7 @@
   "id": "cwn-combat-enhancements",
   "title": "CWN Combat Enhancements",
   "description": "Target-aware attack, range, Trauma, and damage handling for Cities Without Number games using the SWNR system.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "authors": [
     {
       "name": "jlabruna"
@@ -10,7 +10,7 @@
   ],
   "url": "https://github.com/jlabruna/CWN-combat-enhancements",
   "manifest": "https://github.com/jlabruna/CWN-combat-enhancements/releases/latest/download/module.json",
-  "download": "https://github.com/jlabruna/CWN-combat-enhancements/releases/download/v0.2.0/cwn-combat-enhancements-v0.2.0.zip",
+  "download": "https://github.com/jlabruna/CWN-combat-enhancements/releases/download/v0.3.0/cwn-combat-enhancements-v0.3.0.zip",
   "bugs": "https://github.com/jlabruna/CWN-combat-enhancements/issues",
   "compatibility": {
     "minimum": "13.345",

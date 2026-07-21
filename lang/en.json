@@ -1,6 +1,8 @@
 {
   "CWNCE.Settings.ShowExactAc.Name": "Show exact target AC to players",
   "CWNCE.Settings.ShowExactAc.Hint": "When enabled, players see the target's exact melee or ranged AC. GMs always see exact AC.",
+  "CWNCE.Settings.AutomateNpcArmor.Name": "Calculate NPC defenses from active armor",
+  "CWNCE.Settings.AutomateNpcArmor.Hint": "When enabled, ticked NPC armor determines AC, Soak, and Trauma protection. Manual Base AC and Melee AC remain the unarmored fallback.",
   "CWNCE.Chat.Heading": "Target Check",
   "CWNCE.Chat.NoTargets": "No targets were selected when this attack was rolled.",
   "CWNCE.Chat.TargetUnavailable": "A captured target is no longer available.",

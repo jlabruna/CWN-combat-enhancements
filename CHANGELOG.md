@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0
+
+- Added NPC armor defense calculation for SWNR's CWN mode.
+- Ticked NPC armor now determines ranged and melee AC, using the highest active
+  body armor and active shield bonuses.
+- Manual Base AC and Melee AC remain the NPC's fallback defenses.
+- Only ticked NPC armor contributes Soak and Trauma Target protection.
+- Added a world setting allowing GMs to disable NPC armor automation.
+
 ## 0.2.0
 
 - Added a GM-only **Apply damage to HIT targets** action to attack cards.
