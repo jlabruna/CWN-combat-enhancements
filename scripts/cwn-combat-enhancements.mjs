@@ -24,21 +24,21 @@ Hooks.on("preCreateChatMessage", (message, data, _options, userId) => {
   const source = readAttackCardSource(data.content ?? message.content);
   if (!source) return;
 
-  const actor = game.actors.get(source.actorId);
+  const attackerToken = resolveAttackerToken(message.speaker, source.actorId);
+  const actor = attackerToken?.actor ?? game.actors.get(source.actorId);
   const weapon = actor?.items.get(source.itemId);
   if (weapon?.type !== "weapon") return;
 
   const targetRefs = Array.from(game.user.targets)
     .map((token) => ({
-      sceneId: token.scene?.id ?? canvas.scene?.id ?? null,
+      sceneId: token.document?.parent?.id ?? canvas.scene?.id ?? null,
       tokenId: token.id,
     }))
     .filter((ref) => ref.sceneId && ref.tokenId);
 
-  const attackerToken = resolveAttackerToken(message.speaker, actor);
   const attackContext = {
-    actorId: actor.id,
-    itemId: weapon.id,
+    actorId: source.actorId,
+    itemId: source.itemId,
     sceneId: attackerToken?.parent?.id ?? canvas.scene?.id ?? null,
     attackerTokenId: attackerToken?.id ?? message.speaker?.token ?? null,
     targets: targetRefs,
@@ -62,7 +62,7 @@ Hooks.on("renderChatMessage", (message, html) => {
   );
   if (!card) return;
 
-  const actor = game.actors.get(context.actorId);
+  const actor = resolveContextActor(context);
   const weapon = actor?.items.get(context.itemId);
   const attackTotal = Number(message.rolls?.[0]?.total);
   if (weapon?.type !== "weapon" || !Number.isFinite(attackTotal)) return;
@@ -84,16 +84,27 @@ function readAttackCardSource(content) {
   };
 }
 
-function resolveAttackerToken(speaker, actor) {
-  if (speaker?.token && canvas.ready) {
-    const token = canvas.tokens.get(speaker.token);
-    if (token) return token.document;
+function resolveAttackerToken(speaker, actorId) {
+  if (speaker?.token) {
+    const scene = game.scenes.get(speaker.scene) ?? canvas.scene;
+    const tokenDocument = scene?.tokens.get(speaker.token);
+    if (tokenDocument) return tokenDocument;
   }
 
   const controlled = canvas.ready
-    ? canvas.tokens.controlled.find((token) => token.actor?.id === actor?.id)
+    ? canvas.tokens.controlled.find((token) => token.actor?.id === actorId)
     : null;
   return controlled?.document ?? null;
+}
+
+/**
+ * Prefer the token actor because unlinked tokens have synthetic actors whose
+ * embedded weapon data can differ from the original world actor.
+ */
+function resolveContextActor(context) {
+  const scene = game.scenes.get(context.sceneId);
+  const tokenDocument = scene?.tokens.get(context.attackerTokenId);
+  return tokenDocument?.actor ?? game.actors.get(context.actorId);
 }
 
 function buildResults({ context, weapon, attackTotal }) {

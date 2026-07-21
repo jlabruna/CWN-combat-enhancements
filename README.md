@@ -30,7 +30,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.1.0.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.1.1.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -61,3 +61,15 @@ meters, feet, yards, kilometres, or miles.
   not attach weapon/target metadata to every attack message. A future SWNR card
   markup change may require a compatibility update.
 - Multi-level/elevation distance and wall/line-of-sight checks are not included.
+
+## Changes
+
+### 0.1.1
+
+- Read weapons from the attacking token's synthetic actor before falling back to
+  the original world actor. This fixes stale melee and range values for unlinked
+  NPC tokens whose embedded weapons were edited on the token sheet.
+
+### 0.1.0
+
+- Initial target-aware attack, AC, and ranged-distance checks.
