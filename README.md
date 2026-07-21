@@ -23,8 +23,8 @@ running on **Systems Without Number Redux (SWNR) 2.3.0**.
 - Delegates actual health changes to SWNR so Damage Reduction, Soak, HP, defeated
   status, and floating damage numbers retain the system's standard behavior.
 - Calculates NPC ranged AC, melee AC, Soak, and Trauma protection from armor
-  whose use checkbox is ticked. Manual NPC AC remains the fallback when active
-  armor does not improve it.
+  that is both Readied and Equipped. Manual NPC AC remains the fallback when
+  active armor does not improve it.
 
 The module does not change the original attack roll, spend ammunition, or
 automate cover. Target checks and the optional GM damage action are displayed
@@ -42,7 +42,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.3.0.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.3.1.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -91,6 +91,14 @@ meters, feet, yards, kilometres, or miles.
   buttons remain available for GM corrections or exceptional rules.
 
 ## Changes
+
+### 0.3.1
+
+- Prevented multiple active body-armour suits from stacking Soak.
+- Retained additive Soak from active armor accessories.
+- Required NPC armor and accessories to be both Readied and Equipped.
+- Disabled equipping stowed NPC armor and unequipped armor whenever its carried
+  location changes.
 
 ### 0.3.0
 

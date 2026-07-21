@@ -32,6 +32,49 @@ Hooks.once("setup", () => {
 });
 
 /**
+ * Changing where armor is carried always unequips it. This prevents armor that
+ * was equipped while Readied from silently remaining active after it is stowed,
+ * and requires newly Readied armor to be equipped deliberately.
+ */
+Hooks.on("preUpdateItem", (item, changes, _options, userId) => {
+  if (
+    game.system.id !== "swnr" ||
+    userId !== game.user.id ||
+    item.type !== "armor" ||
+    item.parent?.type !== "npc" ||
+    !game.settings.get(MODULE_ID, "automateNpcArmor")
+  ) return;
+
+  const location = foundry.utils.getProperty(changes, "system.location");
+  if (location === undefined) return;
+  foundry.utils.setProperty(changes, "system.use", false);
+});
+
+/** Disable the NPC sheet's Equipped checkbox until the armor is Readied. */
+Hooks.on("renderApplicationV2", (application, element) => {
+  if (
+    game.system.id !== "swnr" ||
+    !game.settings.get(MODULE_ID, "automateNpcArmor")
+  ) return;
+
+  const actor = application.actor ?? application.document;
+  if (actor?.type !== "npc") return;
+
+  const root = element instanceof HTMLElement ? element : element?.[0];
+  if (!root) return;
+
+  for (const checkbox of root.querySelectorAll(
+    'input[type="checkbox"][data-action="toggleArmor"][data-item-id]',
+  )) {
+    const armor = actor.items.get(checkbox.dataset.itemId);
+    if (armor?.type !== "armor" || armor.system?.location === "readied") continue;
+    checkbox.checked = false;
+    checkbox.disabled = true;
+    checkbox.title = game.i18n.localize("CWNCE.Armor.ReadyBeforeEquipping");
+  }
+});
+
+/**
  * Extend SWNR's NPC derived-data preparation without storing calculated AC on
  * the actor. The original manual fields remain the fallback whenever no active
  * armor improves them.
@@ -73,7 +116,10 @@ function applyNpcArmorCalculation(system) {
   ) return;
 
   const activeArmor = Array.from(actor.items ?? []).filter(
-    (item) => item.type === "armor" && item.system?.use === true,
+    (item) =>
+      item.type === "armor" &&
+      item.system?.use === true &&
+      item.system?.location === "readied",
   );
   const bodyArmor = activeArmor.filter((item) => !item.system?.shield);
   const shields = activeArmor.filter((item) => item.system?.shield);
@@ -112,7 +158,8 @@ function applyNpcArmorCalculation(system) {
     value: toFiniteNumber(baseSoak.value) ?? 0,
     max: toFiniteNumber(baseSoak.max) ?? 0,
   };
-  for (const armor of activeArmor) {
+  const protectiveArmor = [primaryArmor, ...shields].filter(Boolean);
+  for (const armor of protectiveArmor) {
     soakTotal.value += toFiniteNumber(armor.system?.soak?.value) ?? 0;
     soakTotal.max += toFiniteNumber(armor.system?.soak?.max) ?? 0;
   }

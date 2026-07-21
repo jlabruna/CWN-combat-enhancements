@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.3.1
+
+- Fixed NPC Soak incorrectly stacking from multiple active body-armour suits.
+- Soak now comes from the single highest active body armor plus active armor
+  accessories, such as Absorption Plates.
+- NPC armor and accessories must now be both Readied and Equipped to provide
+  protection.
+- Stowed NPC armor cannot be equipped from the NPC armor list, and changing an
+  armor item's carried location automatically unequips it.
+
 ## 0.3.0
 
 - Added NPC armor defense calculation for SWNR's CWN mode.
