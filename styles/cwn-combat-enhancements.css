@@ -1,0 +1,85 @@
+.cwnce-results {
+  border-top: 1px solid var(--color-border-light-2, #777);
+  margin-top: 0.65rem;
+  padding-top: 0.5rem;
+}
+
+.cwnce-results h5 {
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  margin: 0 0 0.4rem;
+  text-transform: uppercase;
+}
+
+.cwnce-target {
+  background: rgb(0 0 0 / 8%);
+  border-left: 4px solid #777;
+  margin: 0.35rem 0;
+  padding: 0.4rem 0.5rem;
+}
+
+.cwnce-target.cwnce-hit {
+  border-left-color: #16803c;
+}
+
+.cwnce-target.cwnce-miss,
+.cwnce-target.cwnce-out {
+  border-left-color: #a62929;
+}
+
+.cwnce-target-name {
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.cwnce-target dl {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  margin: 0;
+}
+
+.cwnce-target dt,
+.cwnce-target dd {
+  margin: 0;
+}
+
+.cwnce-target dd {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.cwnce-outcome {
+  font-size: 1rem;
+  font-weight: 800;
+  margin-top: 0.3rem;
+  text-align: center;
+}
+
+.cwnce-hit .cwnce-outcome {
+  color: #116b32;
+}
+
+.cwnce-miss .cwnce-outcome,
+.cwnce-out .cwnce-outcome {
+  color: #8d2020;
+}
+
+.cwnce-notice,
+.cwnce-weapon-ranges {
+  color: var(--color-text-dark-secondary, #555);
+  font-size: 0.8rem;
+  margin: 0.35rem 0 0;
+}
+
+.theme-dark .cwnce-target {
+  background: rgb(255 255 255 / 7%);
+}
+
+.theme-dark .cwnce-hit .cwnce-outcome {
+  color: #58c77c;
+}
+
+.theme-dark .cwnce-miss .cwnce-outcome,
+.theme-dark .cwnce-out .cwnce-outcome {
+  color: #ef7676;
+}

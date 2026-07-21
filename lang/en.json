@@ -1,0 +1,23 @@
+{
+  "CWNCE.Settings.ShowExactAc.Name": "Show exact target AC to players",
+  "CWNCE.Settings.ShowExactAc.Hint": "When enabled, players see the target's exact melee or ranged AC. GMs always see exact AC.",
+  "CWNCE.Chat.Heading": "Target Check",
+  "CWNCE.Chat.NoTargets": "No targets were selected when this attack was rolled.",
+  "CWNCE.Chat.TargetUnavailable": "A captured target is no longer available.",
+  "CWNCE.Chat.Distance": "Distance",
+  "CWNCE.Chat.Range": "Range",
+  "CWNCE.Chat.Attack": "Attack",
+  "CWNCE.Chat.MeleeAc": "Melee AC",
+  "CWNCE.Chat.RangedAc": "Ranged AC",
+  "CWNCE.Chat.Unavailable": "Unavailable",
+  "CWNCE.Chat.RangeMelee": "Melee",
+  "CWNCE.Chat.RangeNormal": "Normal",
+  "CWNCE.Chat.RangeExtreme": "Extreme (−2)",
+  "CWNCE.Chat.RangeOut": "Out of range",
+  "CWNCE.Chat.RangeUnknown": "Unknown",
+  "CWNCE.Chat.Hit": "HIT",
+  "CWNCE.Chat.Miss": "MISS",
+  "CWNCE.Chat.OutOfRange": "OUT OF RANGE",
+  "CWNCE.Chat.Unknown": "CHECK MANUALLY",
+  "CWNCE.Chat.WeaponRanges": "Weapon range: {normal} m normal / {maximum} m maximum"
+}
