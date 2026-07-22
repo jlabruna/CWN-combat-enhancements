@@ -46,7 +46,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.5.0.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.5.1.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -95,6 +95,11 @@ meters, feet, yards, kilometres, or miles.
   buttons remain available for GM corrections or exceptional rules.
 
 ## Changes
+
+### 0.5.1
+
+- Fixed labelled modifier breakdowns remaining visible while Foundry's dice
+  details were collapsed.
 
 ### 0.5.0
 

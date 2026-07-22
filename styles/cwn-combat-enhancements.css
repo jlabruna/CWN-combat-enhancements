@@ -70,8 +70,14 @@
   background: var(--cwnit-background-raised, rgb(0 0 0 / 6%));
   border-top: 1px solid var(--cwnit-border, var(--color-border-light-2, #777));
   color: var(--cwnit-text, inherit);
+  display: none;
   margin-top: 0.35rem;
   padding: 0.35rem 0.45rem;
+}
+
+/* Foundry keeps the tooltip container mounted while a roll is collapsed. */
+.dice-roll.expanded .cwnce-modifier-breakdown {
+  display: block;
 }
 
 .cwnce-modifier-breakdown h4 {

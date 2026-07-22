@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.5.1
+
+- Fixed modifier breakdowns remaining visible when their Foundry roll details
+  were collapsed.
+- Modifier breakdowns now open and close with their corresponding dice tooltip.
+
 ## 0.5.0
 
 - Added labelled modifier breakdowns inside expanded weapon attack rolls.
