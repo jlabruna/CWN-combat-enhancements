@@ -259,6 +259,7 @@ async function resolveSuppressiveFire({ weaponModel, damageBonus, statModifier }
           outcome: "saved",
           evasionTarget,
           saveTotal,
+          saveFormula: saveRoll.formula,
           saveRollHtml: await saveRoll.render(),
         });
         continue;
@@ -271,9 +272,11 @@ async function resolveSuppressiveFire({ weaponModel, damageBonus, statModifier }
         outcome: trauma.traumatic ? "trauma" : "failed",
         evasionTarget,
         saveTotal,
+        saveFormula: saveRoll.formula,
         saveRollHtml: await saveRoll.render(),
         traumaRoll: trauma.total,
         traumaTarget: trauma.target,
+        traumaFormula: trauma.roll?.formula ?? null,
         traumaRollHtml: trauma.roll ? await trauma.roll.render() : null,
         traumaRating: trauma.rating,
         amount: trauma.traumatic ? halfDamage * trauma.rating : halfDamage,
@@ -291,6 +294,11 @@ async function resolveSuppressiveFire({ weaponModel, damageBonus, statModifier }
       ammoSpent: weaponModel.ammo.type === "infinite" ? 0 : 2,
       damageTotal: Number(damageRoll.total),
       halfDamage,
+      damageBreakdown: buildSuppressiveDamageBreakdown({
+        damageRoll,
+        statModifier,
+        damageBonus,
+      }),
       results,
     };
 
@@ -506,6 +514,7 @@ async function buildSuppressiveChatContent({ weapon, damageRoll, context }) {
   const damage = document.createElement("div");
   damage.className = "cwnce-suppressive-roll";
   damage.innerHTML = await damageRoll.render();
+  appendSuppressiveBreakdown(damage, context.damageBreakdown);
   const half = document.createElement("div");
   half.className = "cwnce-suppressive-half";
   half.textContent = game.i18n.format("CWNCE.Suppress.Chat.HalfDamage", {
@@ -532,6 +541,26 @@ function buildSuppressiveTarget(result) {
     const row = document.createElement("div");
     row.className = "cwnce-suppressive-save";
     row.innerHTML = result.saveRollHtml;
+    appendSuppressiveBreakdown(row, [
+      {
+        label: "CWNCE.Breakdown.EvasionDie",
+        value: String(result.saveTotal),
+        formula: result.saveFormula ?? "1d20",
+      },
+      {
+        label: "CWNCE.Breakdown.SaveTarget",
+        value: String(result.evasionTarget),
+      },
+      {
+        label: "CWNCE.Breakdown.SaveResult",
+        value: game.i18n.localize(
+          result.outcome === "saved"
+            ? "CWNCE.Breakdown.Success"
+            : "CWNCE.Breakdown.Failure",
+        ),
+        total: true,
+      },
+    ]);
     const detail = document.createElement("span");
     detail.textContent = game.i18n.format("CWNCE.Suppress.Chat.SaveCheck", {
       roll: result.saveTotal,
@@ -545,6 +574,26 @@ function buildSuppressiveTarget(result) {
     const row = document.createElement("div");
     row.className = "cwnce-suppressive-trauma-roll";
     row.innerHTML = result.traumaRollHtml;
+    appendSuppressiveBreakdown(row, [
+      {
+        label: "CWNCE.Breakdown.TraumaDie",
+        value: String(result.traumaRoll),
+        formula: result.traumaFormula,
+      },
+      {
+        label: "CWNCE.Breakdown.TraumaTarget",
+        value: String(result.traumaTarget),
+      },
+      {
+        label: "CWNCE.Breakdown.TraumaResult",
+        value: game.i18n.localize(
+          result.outcome === "trauma"
+            ? "CWNCE.Breakdown.TraumaSuccess"
+            : "CWNCE.Breakdown.NoTrauma",
+        ),
+        total: true,
+      },
+    ]);
     target.append(row);
   }
 
@@ -574,6 +623,72 @@ function formatSuppressiveOutcome(result) {
     });
   }
   return game.i18n.localize(keys[result.outcome] ?? keys.manual);
+}
+
+function buildSuppressiveDamageBreakdown({ damageRoll, statModifier, damageBonus }) {
+  const stat = finiteNumber(statModifier) ?? 0;
+  const bonus = finiteNumber(damageBonus) ?? 0;
+  return [
+    {
+      label: "CWNCE.Breakdown.WeaponDamage",
+      value: String(Number(damageRoll.total) - stat - bonus),
+      formula: String(damageRoll.formula).split(/\s*\+\s*/)[0],
+    },
+    {
+      label: "CWNCE.Breakdown.AttributeModifier",
+      value: String(stat),
+      modifier: true,
+    },
+    {
+      label: "CWNCE.Breakdown.DamageBonus",
+      value: String(bonus),
+      modifier: true,
+    },
+    {
+      label: "CWNCE.Breakdown.Total",
+      value: String(damageRoll.total),
+      total: true,
+    },
+  ];
+}
+
+function appendSuppressiveBreakdown(container, entries) {
+  if (!entries?.length) return;
+  const tooltip = container.querySelector(".dice-tooltip");
+  if (!tooltip || tooltip.querySelector(".cwnce-modifier-breakdown")) return;
+
+  const section = document.createElement("section");
+  section.className = "cwnce-modifier-breakdown";
+  const heading = document.createElement("h4");
+  heading.textContent = game.i18n.localize("CWNCE.Breakdown.Heading");
+  section.append(heading);
+
+  const list = document.createElement("dl");
+  for (const entry of entries) {
+    const term = document.createElement("dt");
+    term.textContent = game.i18n.localize(entry.label);
+    if (entry.formula) {
+      const formula = document.createElement("small");
+      formula.textContent = ` (${entry.formula})`;
+      term.append(formula);
+    }
+
+    const value = document.createElement("dd");
+    value.textContent = entry.modifier
+      ? formatSuppressiveSigned(Number(entry.value))
+      : entry.value;
+    if (entry.total) {
+      term.classList.add("cwnce-breakdown-total");
+      value.classList.add("cwnce-breakdown-total");
+    }
+    list.append(term, value);
+  }
+  section.append(list);
+  tooltip.append(section);
+}
+
+function formatSuppressiveSigned(value) {
+  return `${value >= 0 ? "+" : ""}${value}`;
 }
 
 function buildSuppressiveDamageAction(message, context) {

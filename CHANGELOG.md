@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.6.1
+
+- Added labelled modifier breakdowns to expanded Suppressive Fire weapon-damage
+  rolls.
+- Expanded Evasion Save rolls now show the die, Evasion target, and save result.
+- Expanded Trauma rolls now show the Trauma Die, target-specific Trauma Target,
+  and whether the roll produced a Trauma Hit.
+
 ## 0.6.0
 
 - Added **Use Suppressive Fire** to eligible SWNR weapon attack dialogs.

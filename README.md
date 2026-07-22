@@ -51,7 +51,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.6.0.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.6.1.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -126,6 +126,13 @@ target for manual resolution and does not apply damage automatically.
   buttons remain available for GM corrections or exceptional rules.
 
 ## Changes
+
+### 0.6.1
+
+- Added expanded modifier breakdowns to Suppressive Fire weapon-damage,
+  Evasion Save, and Trauma rolls.
+- Evasion details now identify the rolled die, target number, and success or
+  failure; Trauma details identify the Trauma Target and resulting outcome.
 
 ### 0.6.0
 
