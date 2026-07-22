@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.6.2
+
+- Corrected the Suppressive Fire confirmation to state that the weapon must be
+  braced against a solid support or the gunner must have gone prone.
+- Corrected the cancellation warning to use the same rules-accurate wording.
+
 ## 0.6.1
 
 - Added labelled modifier breakdowns to expanded Suppressive Fire weapon-damage

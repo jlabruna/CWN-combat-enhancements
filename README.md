@@ -51,7 +51,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.6.1.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.6.2.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -95,8 +95,9 @@ meters, feet, yards, kilometres, or miles.
 3. Leave Burst Fire unticked and tick **Use Suppressive Fire**.
 4. The module places a temporary 90-degree cone from the shooter toward the aim
    target and finds every non-hidden token inside the weapon's normal range.
-5. In the confirmation window, confirm that the weapon is braced or mounted and
-   tick **Hard cover** beside any protected targets.
+5. In the confirmation window, confirm that the weapon is braced against a
+   solid support or that the gunner has gone prone, and tick **Hard cover**
+   beside any protected targets.
 6. The module spends two rounds, rolls weapon damage once, and rolls an Evasion
    Save separately for every uncovered token. Failed saves take half damage,
    rounded up. Every failed target gets its own Trauma Die and Trauma Target
