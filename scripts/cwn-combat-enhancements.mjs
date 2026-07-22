@@ -203,6 +203,7 @@ Hooks.on("preCreateChatMessage", (message, data, _options, userId) => {
     attackerTokenId: attackerToken?.id ?? message.speaker?.token ?? null,
     targets: targetRefs,
     damage: source.damage,
+    breakdowns: buildRollBreakdowns(source.rollDetails, weapon),
   };
 
   message.updateSource({ [`flags.${MODULE_ID}.${ATTACK_FLAG}`]: attackContext });
@@ -229,6 +230,7 @@ Hooks.on("renderChatMessage", (message, html) => {
   if (weapon?.type !== "weapon" || !Number.isFinite(attackTotal)) return;
 
   const naturalAttackRoll = Number(message.rolls?.[0]?.dice?.[0]?.total);
+  enhanceRollBreakdowns(card, context.breakdowns);
   const results = buildResults({
     context,
     weapon,
@@ -257,7 +259,35 @@ function readAttackCardSource(content) {
     actorId: card.dataset.actorId,
     itemId: card.dataset.itemId,
     damage: readDamageData(card),
+    rollDetails: readRollDetails(card),
   };
+}
+
+function readRollDetails(card) {
+  const damageRolls = Array.from(
+    card.querySelectorAll("span.roll.roll-damage:not(.roll-shock)"),
+  );
+  const traumaRoll = Array.from(card.querySelectorAll("span.roll")).find(
+    (element) =>
+      !element.classList.contains("roll-hit") &&
+      !element.classList.contains("roll-damage") &&
+      !element.classList.contains("roll-shock"),
+  );
+
+  return {
+    hit: readRenderedRoll(card.querySelector("span.roll.roll-hit")),
+    damage: readRenderedRoll(damageRolls[0]),
+    trauma: readRenderedRoll(traumaRoll),
+    traumaDamage: readRenderedRoll(damageRolls[1]),
+  };
+}
+
+function readRenderedRoll(element) {
+  if (!element) return null;
+  const formula = element.querySelector(".dice-formula")?.textContent?.trim();
+  const total = readDiceTotal(element);
+  if (!formula || total === null) return null;
+  return { formula, total };
 }
 
 function readDamageData(card) {
@@ -282,6 +312,185 @@ function readDiceTotal(element) {
   if (!element) return null;
   const value = Number(element.querySelector(".dice-total")?.textContent?.trim());
   return Number.isFinite(value) ? value : null;
+}
+
+function buildRollBreakdowns(rollDetails, weapon) {
+  if (!rollDetails) return null;
+
+  const attackBonusLabel = weapon.system?.isMelee
+    ? "CWNCE.Breakdown.MeleeAttackBonus"
+    : "CWNCE.Breakdown.RangedAttackBonus";
+
+  return {
+    hit: buildAdditiveBreakdown(rollDetails.hit, {
+      baseLabel: "CWNCE.Breakdown.AttackDie",
+      modifierLabels: [
+        "CWNCE.Breakdown.BurstFire",
+        "CWNCE.Breakdown.ManualModifier",
+        attackBonusLabel,
+        "CWNCE.Breakdown.WeaponAttackBonus",
+        "CWNCE.Breakdown.AttributeModifier",
+        "CWNCE.Breakdown.SkillRank",
+      ],
+    }),
+    damage: buildAdditiveBreakdown(rollDetails.damage, {
+      baseLabel: "CWNCE.Breakdown.WeaponDamage",
+      modifierLabels: [
+        "CWNCE.Breakdown.BurstFire",
+        "CWNCE.Breakdown.AttributeModifier",
+        "CWNCE.Breakdown.DamageBonus",
+      ],
+    }),
+    trauma: buildSingleRollBreakdown(
+      rollDetails.trauma,
+      "CWNCE.Breakdown.TraumaDie",
+    ),
+    traumaDamage: buildTraumaDamageBreakdown(rollDetails.traumaDamage),
+  };
+}
+
+function buildAdditiveBreakdown(detail, { baseLabel, modifierLabels }) {
+  if (!detail) return null;
+
+  const parts = detail.formula.split(/\s*\+\s*/).filter(Boolean);
+  if (parts.length < modifierLabels.length + 1) {
+    return buildSingleRollBreakdown(detail, baseLabel);
+  }
+
+  const modifierParts = parts.slice(-modifierLabels.length);
+  const modifierValues = modifierParts.map((value) => Number(value));
+  if (modifierValues.some((value) => !Number.isFinite(value))) {
+    return buildSingleRollBreakdown(detail, baseLabel);
+  }
+
+  const baseFormula = parts.slice(0, -modifierLabels.length).join(" + ");
+  const baseTotal = detail.total - modifierValues.reduce((sum, value) => sum + value, 0);
+  const entries = [
+    {
+      label: baseLabel,
+      value: String(baseTotal),
+      formula: baseFormula,
+      modifier: false,
+    },
+  ];
+
+  for (let index = 0; index < modifierLabels.length; index += 1) {
+    entries.push({
+      label: modifierLabels[index],
+      value: String(modifierValues[index]),
+      modifier: true,
+    });
+  }
+
+  entries.push({
+    label: "CWNCE.Breakdown.Total",
+    value: String(detail.total),
+    modifier: false,
+    total: true,
+  });
+  return entries;
+}
+
+function buildSingleRollBreakdown(detail, label) {
+  if (!detail) return null;
+  return [
+    {
+      label,
+      value: String(detail.total),
+      formula: detail.formula,
+      modifier: false,
+    },
+  ];
+}
+
+function buildTraumaDamageBreakdown(detail) {
+  if (!detail) return null;
+  const parts = detail.formula.split(/\s*\*\s*/);
+  if (parts.length !== 2 || parts.some((value) => !Number.isFinite(Number(value)))) {
+    return buildSingleRollBreakdown(detail, "CWNCE.Breakdown.TraumaDamage");
+  }
+
+  return [
+    {
+      label: "CWNCE.Breakdown.NormalDamage",
+      value: String(Number(parts[0])),
+      modifier: false,
+    },
+    {
+      label: "CWNCE.Breakdown.TraumaMultiplier",
+      value: String(Number(parts[1])),
+      multiplier: true,
+      modifier: false,
+    },
+    {
+      label: "CWNCE.Breakdown.Total",
+      value: String(detail.total),
+      modifier: false,
+      total: true,
+    },
+  ];
+}
+
+function enhanceRollBreakdowns(card, breakdowns) {
+  if (!breakdowns || card.querySelector(".cwnce-modifier-breakdown")) return;
+
+  const damageRolls = Array.from(
+    card.querySelectorAll("span.roll.roll-damage:not(.roll-shock)"),
+  );
+  const traumaRoll = Array.from(card.querySelectorAll("span.roll")).find(
+    (element) =>
+      !element.classList.contains("roll-hit") &&
+      !element.classList.contains("roll-damage") &&
+      !element.classList.contains("roll-shock"),
+  );
+  const rollElements = {
+    hit: card.querySelector("span.roll.roll-hit"),
+    damage: damageRolls[0],
+    trauma: traumaRoll,
+    traumaDamage: damageRolls[1],
+  };
+
+  for (const [rollType, entries] of Object.entries(breakdowns)) {
+    if (!entries?.length) continue;
+    const tooltip = rollElements[rollType]?.querySelector(".dice-tooltip");
+    if (!tooltip) continue;
+    tooltip.append(buildModifierBreakdownElement(entries));
+  }
+}
+
+function buildModifierBreakdownElement(entries) {
+  const section = document.createElement("section");
+  section.className = "cwnce-modifier-breakdown";
+
+  const heading = document.createElement("h4");
+  heading.textContent = game.i18n.localize("CWNCE.Breakdown.Heading");
+  section.append(heading);
+
+  const list = document.createElement("dl");
+  for (const entry of entries) {
+    const term = document.createElement("dt");
+    term.textContent = game.i18n.localize(entry.label);
+    if (entry.formula) {
+      const formula = document.createElement("small");
+      formula.textContent = ` (${entry.formula})`;
+      term.append(formula);
+    }
+
+    const value = document.createElement("dd");
+    value.textContent = entry.multiplier
+      ? `×${entry.value}`
+      : entry.modifier
+        ? formatCompactSigned(Number(entry.value))
+        : entry.value;
+    if (entry.total) {
+      term.classList.add("cwnce-breakdown-total");
+      value.classList.add("cwnce-breakdown-total");
+    }
+    list.append(term, value);
+  }
+
+  section.append(list);
+  return section;
 }
 
 function resolveAttackerToken(speaker, actorId) {
@@ -749,6 +958,10 @@ function formatOutcome(result) {
     unknown: "CWNCE.Chat.Unknown",
   };
   return game.i18n.localize(keys[result] ?? keys.unknown);
+}
+
+function formatCompactSigned(value) {
+  return value >= 0 ? `+${value}` : `−${Math.abs(value)}`;
 }
 
 function formatSigned(value) {

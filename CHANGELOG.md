@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.5.0
+
+- Added labelled modifier breakdowns inside expanded weapon attack rolls.
+- Attack details itemise the attack die, Burst Fire, manual modifier, character
+  attack bonus, weapon bonus, attribute modifier, skill rank, and total.
+- Damage details itemise weapon damage, Burst Fire, attribute modifier, damage
+  bonus, and total.
+- Trauma rolls and Trauma damage now explain their die or multiplier components.
+- Breakdown values are captured at roll time and do not change if the actor or
+  weapon is edited later.
+
 ## 0.4.0
 
 - Successful attacks that also beat a target's Trauma Target are now displayed

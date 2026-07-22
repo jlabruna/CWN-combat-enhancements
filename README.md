@@ -14,6 +14,8 @@ running on **Systems Without Number Redux (SWNR) 2.3.0**.
 - Reports hit, miss, or out of range separately for each target.
 - Highlights successful Trauma hits separately in blue. A high Trauma Die never
   changes a missed or out-of-range attack into a Trauma hit.
+- Adds labelled modifier breakdowns to expanded attack, damage, Trauma, and
+  Trauma-damage rolls.
 - Keeps exact enemy AC hidden from players by default; GMs always see it.
 - Gives the GM one **Apply damage to HIT targets** action on attack cards with a
   completed damage roll.
@@ -44,7 +46,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.4.0.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.5.0.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -93,6 +95,12 @@ meters, feet, yards, kilometres, or miles.
   buttons remain available for GM corrections or exceptional rules.
 
 ## Changes
+
+### 0.5.0
+
+- Added detailed, labelled modifier breakdowns inside SWNR's existing expanded
+  weapon-roll details.
+- Captured the breakdown at roll time so historical cards remain accurate.
 
 ### 0.4.0
 

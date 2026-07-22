@@ -66,6 +66,58 @@
   text-align: center;
 }
 
+.cwnce-modifier-breakdown {
+  background: var(--cwnit-background-raised, rgb(0 0 0 / 6%));
+  border-top: 1px solid var(--cwnit-border, var(--color-border-light-2, #777));
+  color: var(--cwnit-text, inherit);
+  margin-top: 0.35rem;
+  padding: 0.35rem 0.45rem;
+}
+
+.cwnce-modifier-breakdown h4 {
+  border: 0;
+  color: inherit;
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  margin: 0 0 0.25rem;
+  padding: 0;
+  text-transform: uppercase;
+}
+
+.cwnce-modifier-breakdown dl {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  margin: 0;
+}
+
+.cwnce-modifier-breakdown dt,
+.cwnce-modifier-breakdown dd {
+  margin: 0;
+  padding: 0.1rem 0;
+}
+
+.cwnce-modifier-breakdown dt {
+  overflow-wrap: anywhere;
+}
+
+.cwnce-modifier-breakdown dt small {
+  color: var(--cwnit-muted, var(--color-text-dark-secondary, #555));
+  font-weight: 400;
+}
+
+.cwnce-modifier-breakdown dd {
+  font-variant-numeric: tabular-nums;
+  padding-left: 0.5rem;
+  text-align: right;
+}
+
+.cwnce-modifier-breakdown .cwnce-breakdown-total {
+  border-top: 1px solid var(--cwnit-border, var(--color-border-light-2, #777));
+  font-weight: 700;
+  margin-top: 0.15rem;
+  padding-top: 0.25rem;
+}
+
 .cwnce-damage-action {
   border-top: 1px dashed var(--color-border-light-2, #777);
   margin-top: 0.55rem;
@@ -116,6 +168,10 @@
 
 .theme-dark .cwnce-target {
   background: rgb(255 255 255 / 7%);
+}
+
+.theme-dark .cwnce-modifier-breakdown {
+  background: rgb(255 255 255 / 6%);
 }
 
 .theme-dark .cwnce-hit .cwnce-outcome {
