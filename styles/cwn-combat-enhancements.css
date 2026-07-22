@@ -197,3 +197,177 @@
 .theme-dark .cwnce-out .cwnce-outcome {
   color: #ef7676;
 }
+
+/* Weapon attack dialog fire-mode controls. */
+.cwnce-fire-mode-controls {
+  align-items: flex-start;
+  border-top: 1px solid var(--color-border-light-2, #777);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+}
+
+.cwnce-fire-mode-controls .cwnce-burst-control,
+.cwnce-fire-mode-controls .cwnce-suppress-control {
+  align-items: center;
+  display: flex;
+  flex-direction: row;
+  gap: 0.25rem;
+}
+
+.cwnce-fire-mode-controls input[type="checkbox"] {
+  flex: 0 0 auto;
+  margin: 0;
+}
+
+.cwnce-fire-mode-hint {
+  color: var(--color-text-dark-secondary, #555);
+  flex: 1 0 100%;
+  font-size: 0.75rem;
+  margin: 0;
+}
+
+/* Suppressive Fire target confirmation. */
+.cwnce-suppress-confirmation {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.cwnce-suppress-confirmation p {
+  margin: 0;
+}
+
+.cwnce-braced-choice,
+.cwnce-cover-choice {
+  align-items: center;
+  display: grid;
+  gap: 0.4rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+}
+
+.cwnce-braced-choice {
+  font-weight: 700;
+  grid-template-columns: auto minmax(0, 1fr);
+}
+
+.cwnce-cover-choice {
+  border-bottom: 1px solid rgb(127 127 127 / 25%);
+  padding: 0.25rem 0;
+}
+
+.cwnce-cover-choice small {
+  color: var(--color-text-dark-secondary, #555);
+}
+
+/* Suppressive Fire chat card. */
+.cwnce-suppressive-card h4 {
+  border-bottom: 1px solid var(--cwnit-border, var(--color-border-light-2, #777));
+  font-size: 1.15rem;
+  margin: 0 0 0.4rem;
+  padding-bottom: 0.3rem;
+}
+
+.cwnce-suppressive-summary,
+.cwnce-suppressive-half {
+  color: var(--cwnit-muted, var(--color-text-dark-secondary, #555));
+  font-size: 0.8rem;
+  margin: 0.2rem 0 0.45rem;
+}
+
+.cwnce-suppressive-roll .dice-roll {
+  margin-top: 0.2rem;
+}
+
+.cwnce-suppressive-results {
+  border-top: 1px solid var(--cwnit-border, var(--color-border-light-2, #777));
+  display: grid;
+  gap: 0.45rem;
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+}
+
+.cwnce-suppressive-target {
+  background: var(--cwnit-background-raised, rgb(0 0 0 / 6%));
+  border-left: 4px solid #777;
+  padding: 0.4rem 0.5rem;
+}
+
+.cwnce-suppressive-target .cwnce-target-name {
+  margin-bottom: 0.3rem;
+}
+
+.cwnce-suppressive-save,
+.cwnce-suppressive-trauma-roll {
+  display: grid;
+  gap: 0.2rem;
+  margin: 0.2rem 0;
+}
+
+.cwnce-suppressive-save > span {
+  color: var(--cwnit-muted, var(--color-text-dark-secondary, #555));
+  font-size: 0.75rem;
+  text-align: center;
+}
+
+.cwnce-suppressive-target .cwnce-outcome {
+  font-size: 0.9rem;
+}
+
+.cwnce-suppressive-cover {
+  border-left-color: #777;
+}
+
+.cwnce-suppressive-saved {
+  border-left-color: #16803c;
+}
+
+.cwnce-suppressive-failed,
+.cwnce-suppressive-manual {
+  border-left-color: #a62929;
+}
+
+.cwnce-suppressive-trauma {
+  border-left-color: #1769aa;
+}
+
+.cwnce-suppressive-saved .cwnce-outcome {
+  color: #116b32;
+}
+
+.cwnce-suppressive-failed .cwnce-outcome,
+.cwnce-suppressive-manual .cwnce-outcome {
+  color: #8d2020;
+}
+
+.cwnce-suppressive-trauma .cwnce-outcome {
+  color: #1769aa;
+}
+
+.cwnce-suppressive-action {
+  border-top: 1px dashed var(--cwnit-border, var(--color-border-light-2, #777));
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
+}
+
+.cwnce-suppressive-action button {
+  width: 100%;
+}
+
+.theme-dark .cwnce-suppressive-target {
+  background: rgb(255 255 255 / 7%);
+}
+
+.theme-dark .cwnce-suppressive-saved .cwnce-outcome {
+  color: #58c77c;
+}
+
+.theme-dark .cwnce-suppressive-failed .cwnce-outcome,
+.theme-dark .cwnce-suppressive-manual .cwnce-outcome {
+  color: #ef7676;
+}
+
+.theme-dark .cwnce-suppressive-trauma .cwnce-outcome {
+  color: #60b9ff;
+}

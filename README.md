@@ -16,6 +16,11 @@ running on **Systems Without Number Redux (SWNR) 2.3.0**.
   changes a missed or out-of-range attack into a Trauma hit.
 - Adds labelled modifier breakdowns to expanded attack, damage, Trauma, and
   Trauma-damage rolls.
+- Adds explicit Burst Fire and Suppressive Fire choices to eligible weapon
+  attack dialogs. Both choices start unticked and cannot be selected together.
+- Resolves CWN Suppressive Fire with a 90-degree cone, normal-range limit,
+  two-round ammunition cost, hard-cover exclusions, Evasion Saves, half damage
+  rounded up, and separate Trauma checks for each struck target.
 - Keeps exact enemy AC hidden from players by default; GMs always see it.
 - Gives the GM one **Apply damage to HIT targets** action on attack cards with a
   completed damage roll.
@@ -30,9 +35,9 @@ running on **Systems Without Number Redux (SWNR) 2.3.0**.
   that is both Readied and Equipped. Manual NPC AC remains the fallback when
   active armor does not improve it.
 
-The module does not change the original attack roll, spend ammunition, or
-automate cover. Target checks and the optional GM damage action are displayed
-below SWNR's existing card.
+Ordinary attacks continue to use SWNR's original rolls and ammunition handling.
+Suppressive Fire has its own rules workflow and spends two rounds. Hard cover is
+selected manually in its confirmation window.
 
 ## Install on The Forge
 
@@ -46,7 +51,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.5.1.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.6.0.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -56,12 +61,17 @@ meters, feet, yards, kilometres, or miles.
 ## SWNR 2.3.0 integration notes
 
 - Attack entry point: `module/data/items/item-weapon.mjs`, `SWNWeapon.rollAttack()`.
+- Weapon dialog entry point: `SWNWeapon.roll()` and
+  `templates/dialogs/roll-attack.hbs`.
 - Attack card: `templates/chat/attack-roll.hbs`.
 - Card linkage: `data-actor-id` and `data-item-id` on `.chat-card.item-card`.
 - Attack roll: first roll on the resulting `ChatMessage` (`message.rolls[0]`).
 - Weapon item type: `weapon`.
 - Attack classification: `weapon.system.isMelee`.
 - Range fields: `weapon.system.range.normal` and `.max`.
+- Fire-mode fields: `weapon.system.ammo.burst` and `.suppress`.
+- Character Evasion Save: `actor.system.save.evasion`; NPC Evasion Save:
+  `actor.system.saves`.
 - Base/derived AC schema: `module/data/actors/base-actor.mjs`.
 - Character AC derivation: `module/data/actors/actor-character.mjs`.
 - Ranged AC: `actor.system.ac`; melee AC: `actor.system.meleeAc`.
@@ -77,6 +87,27 @@ meters, feet, yards, kilometres, or miles.
   not attach weapon/target metadata to every attack message. A future SWNR card
   markup change may require a compatibility update.
 - Multi-level/elevation distance and wall/line-of-sight checks are not included.
+
+## Suppressive Fire workflow
+
+1. Control the firing token and target exactly one token to aim the cone.
+2. Roll a weapon whose **Suppressive Fire** box is enabled on its item sheet.
+3. Leave Burst Fire unticked and tick **Use Suppressive Fire**.
+4. The module places a temporary 90-degree cone from the shooter toward the aim
+   target and finds every non-hidden token inside the weapon's normal range.
+5. In the confirmation window, confirm that the weapon is braced or mounted and
+   tick **Hard cover** beside any protected targets.
+6. The module spends two rounds, rolls weapon damage once, and rolls an Evasion
+   Save separately for every uncovered token. Failed saves take half damage,
+   rounded up. Every failed target gets its own Trauma Die and Trauma Target
+   comparison.
+7. The GM can use **Apply Suppressive Damage** on the resulting chat card. SWNR
+   still processes Damage Reduction, Soak, HP, defeat, and floating numbers.
+
+Suppressive Fire does not roll to hit or compare AC. The temporary cone is an
+aiming preview; this release does not automatically determine hard cover from
+walls. If a custom actor has no readable Evasion Save, the card marks that
+target for manual resolution and does not apply damage automatically.
 
 ## Target-aware damage behavior
 
@@ -95,6 +126,16 @@ meters, feet, yards, kilometres, or miles.
   buttons remain available for GM corrections or exceptional rules.
 
 ## Changes
+
+### 0.6.0
+
+- Added an automated CWN Suppressive Fire workflow for weapons carrying SWNR's
+  Suppressive Fire flag.
+- Added mutually exclusive Burst Fire and Suppressive Fire choices, both
+  unticked by default on every attack dialog.
+- Added temporary 90-degree cone targeting, normal-range filtering, bracing and
+  hard-cover confirmation, two-round ammo use, per-target Evasion Saves, half
+  damage, Trauma checks, and GM damage application.
 
 ### 0.5.1
 

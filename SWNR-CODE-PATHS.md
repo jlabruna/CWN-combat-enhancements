@@ -77,6 +77,8 @@ target's Soak or Damage Reduction into the next target.
 - `system.isMelee` (Boolean)
 - `system.range.normal` (Number)
 - `system.range.max` (Number)
+- `system.ammo.burst` (Boolean)
+- `system.ammo.suppress` (Boolean)
 
 CWN compendium weapon entries store these range numbers in meters. Examples in
 `src/packs/cwn-items` include Heavy Pistol `10/100` and Rifle `200/400`.
@@ -91,9 +93,29 @@ of range beyond maximum.
 handles chat cards whose linked embedded item exists and has `item.type ===
 "weapon"`; other SWNR roll cards are ignored.
 
+## Suppressive Fire integration
+
+SWNR 2.3.0 stores a Suppressive Fire capability flag on weapons but its
+`templates/dialogs/roll-attack.hbs` dialog only exposes Burst Fire. Its `roll()`
+method also pre-checks Burst Fire whenever enough ammunition is loaded.
+
+For v0.6.0, the module narrowly wraps the SWNR weapon data model's `roll()` and
+`rollAttack()` methods. Eligible weapons are forced through the normal SWNR
+dialog, the pre-checked Burst choice is cleared, and a Suppressive Fire choice
+is injected. Ordinary and Burst attacks return to the original SWNR
+`rollAttack()` method; only the explicit Suppressive Fire branch uses the
+module's custom cone, Evasion Save, damage, Trauma, ammunition, and chat-card
+workflow.
+
+Saving throw targets are read from:
+
+- Characters: `actor.system.save.evasion`
+- NPCs: `actor.system.saves`
+
 ## Extension boundary
 
-This approach does not replace `SWNWeapon.roll()` or `rollAttack()`. It uses core
-Foundry chat lifecycle hooks and reads SWNR documents. That keeps v0.1 isolated
-from the system's attack/damage implementation while still preserving the target
-context that SWNR currently omits.
+Normal target checking and damage integration use Foundry chat lifecycle hooks
+and do not replace SWNR's attack implementation. The Suppressive Fire feature
+adds the scoped weapon-method wrappers described above because SWNR has no
+native Suppressive Fire dialog or resolution path. The wrappers are marked with
+module-specific symbols to prevent duplicate installation.

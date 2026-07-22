@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.6.0
+
+- Added **Use Suppressive Fire** to eligible SWNR weapon attack dialogs.
+- Burst Fire and Suppressive Fire now both start unticked on every attack and
+  are mutually exclusive.
+- Added a temporary 90-degree cone aimed through exactly one targeted token.
+- Limited affected targets to the weapon's normal range and non-hidden tokens
+  inside that cone.
+- Added a confirmation window for the required braced or mounted state and
+  manual hard-cover exclusions.
+- Suppressive Fire now spends two rounds, rolls weapon damage once, and rolls
+  each uncovered target's Evasion Save separately.
+- Failed Evasion Saves take half damage rounded up and receive an individual
+  Trauma Die check; successful saves and hard-cover targets take no damage.
+- Added a dedicated Suppressive Fire chat card and GM-only damage action that
+  delegates Damage Reduction, Soak, HP, and defeat handling to SWNR.
+
 ## 0.5.1
 
 - Fixed modifier breakdowns remaining visible when their Foundry roll details
