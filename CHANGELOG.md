@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.8.0
+
+- Added an opt-in experimental Network Console for visualizing CWN networks.
+- GMs can create multiple networks, set Security difficulty and server class,
+  and add device nodes, connections, hidden connections, and Barriers.
+- GMs can reveal individual nodes and connections to players while retaining
+  private GM notes in a GM-only Journal Entry.
+- Players receive a sanitized persistent view containing only revealed network
+  information.
+- Added CWN-labelled action requests such as Jack In, Move Nodes, Look for
+  Hidden Connections, Run a Program, Copy File, and Issue Command.
+- Player requests notify the GM but do not yet make checks, spend Access,
+  consume CPU, or validate prepared Verbs and Subjects.
+- Added a world setting to enable or disable the Network Console. It defaults
+  to disabled and requires a reload when changed.
+- Included an authorization field in the saved network schema for future
+  designated-player sharing; v0.8.0 shares revealed information with all
+  players.
+
 ## 0.7.0
 
 - Added optional, target-specific automation for CWN's Prone attack modifiers.

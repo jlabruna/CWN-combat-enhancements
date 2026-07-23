@@ -37,6 +37,9 @@ running on **Systems Without Number Redux (SWNR) 2.3.0**.
 - Calculates NPC ranged AC, melee AC, Soak, and Trauma protection from armor
   that is both Readied and Equipped. Manual NPC AC remains the fallback when
   active armor does not improve it.
+- Includes an optional experimental **Network Console** for mapping CWN network
+  nodes, connections, hidden connections, Barriers, and visible network
+  contents. It is disabled by default.
 
 Ordinary attacks continue to use SWNR's original rolls and ammunition handling.
 Suppressive Fire has its own rules workflow and spends two rounds. Hard cover is
@@ -54,7 +57,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.7.0.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.8.0.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -78,6 +81,39 @@ meters, feet, yards, kilometres, or miles.
 - Base/derived AC schema: `module/data/actors/base-actor.mjs`.
 - Character AC derivation: `module/data/actors/actor-character.mjs`.
 - Ranged AC: `actor.system.ac`; melee AC: `actor.system.meleeAc`.
+
+## Experimental Network Console
+
+Enable **Experimental Network Console** under **Configure Settings > CWN Combat
+Enhancements**, then reload the world. Open it from the network icon in the
+Token controls or from the module's settings submenu.
+
+The v0.8.0 prototype follows CWN's network vocabulary:
+
+- networks contain device **nodes** joined by **connections**;
+- **Barriers** protect connections rather than acting as nodes;
+- Demons and watchdogs occupy nodes, and datafiles are node contents;
+- networks record their Security difficulty and primary server class;
+- connections and nodes can be hidden until the GM reveals them.
+
+The full network is kept in a GM-only Journal Entry. Players receive a sanitized
+projection containing only revealed nodes, revealed connections, and
+player-facing details. Private GM notes are never included in that projection.
+
+Players can select a revealed node and send CWN-labelled requests to the GM,
+including **Jack In**, **Move Nodes**, **Look for Hidden Connections**, **Run a
+Program**, **Copy File**, and **Issue Command**. These requests are a
+visualization and table-communication aid only. This prototype does not yet:
+
+- inspect a hacker's cyberdeck;
+- validate prepared Verb and Subject programs;
+- roll Program checks or resolve defensive programs;
+- spend Access or CPU;
+- automate Alert the Network;
+- limit a published network to a designated player.
+
+The saved network schema already reserves an authorization list so
+designated-player sharing can be added without redesigning saved networks.
 
 ## Known limitations
 
@@ -132,6 +168,13 @@ target for manual resolution and does not apply damage automatically.
   buttons remain available for GM corrections or exceptional rules.
 
 ## Changes
+
+### 0.8.0
+
+- Added an opt-in experimental Network Console with GM editing, player reveal,
+  persistent sanitized sharing, and player-to-GM action requests.
+- Added the Network Console world setting and launcher.
+- Prepared the saved-data schema for later designated-player sharing.
 
 ### 0.6.1
 

@@ -1,0 +1,271 @@
+<section class="cwnce-network-shell">
+  {{#unless enabled}}
+    <div class="cwnce-network-empty">
+      <i class="fa-solid fa-power-off"></i>
+      <h2>Network Console Disabled</h2>
+      <p>Ask a GM to enable the Network Console under Configure Settings &gt; CWN Combat Enhancements, then reload the world.</p>
+    </div>
+  {{else}}
+    {{#if notAuthorized}}
+      <div class="cwnce-network-empty">
+        <i class="fa-solid fa-user-lock"></i>
+        <h2>No Network Shared</h2>
+        <p>The active network has not been shared with your user.</p>
+      </div>
+    {{else}}
+      {{#if isGM}}
+        <header class="cwnce-network-toolbar">
+          <label>
+            Active Network
+            <select data-network-select>
+              {{#each networks}}
+                <option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>
+              {{/each}}
+            </select>
+          </label>
+          <button type="button" data-action="createNetwork">
+            <i class="fa-solid fa-plus"></i> Create Network
+          </button>
+          {{#if hasNetwork}}
+            <button type="button" class="danger" data-action="deleteNetwork">
+              <i class="fa-solid fa-trash"></i> Delete
+            </button>
+          {{/if}}
+        </header>
+      {{/if}}
+
+      {{#unless hasNetwork}}
+        <div class="cwnce-network-empty">
+          <i class="fa-solid fa-network-wired"></i>
+          {{#if isGM}}
+            <h2>No Networks Yet</h2>
+            <p>Create a network, then add its first device node.</p>
+            <button type="button" data-action="createNetwork">
+              <i class="fa-solid fa-plus"></i> Create Network
+            </button>
+          {{else}}
+            <h2>No Active Network</h2>
+            <p>The GM has not published a network yet.</p>
+          {{/if}}
+        </div>
+      {{else}}
+        <div class="cwnce-network-layout {{#if isGM}}is-gm{{else}}is-player{{/if}}">
+          {{#if isGM}}
+            <aside class="cwnce-network-sidebar">
+              <form class="cwnce-network-details">
+                <h2><i class="fa-solid fa-server"></i> Network Architecture</h2>
+                <label>
+                  Name
+                  <input type="text" name="name" value="{{network.name}}">
+                </label>
+                <label>
+                  Cyberspace Idiom
+                  <input type="text" name="idiom" value="{{network.idiom}}" placeholder="Neon temple, chrome jungle...">
+                </label>
+                <div class="form-row">
+                  <label>
+                    Security Difficulty
+                    <input type="number" name="securityDifficulty" value="{{network.securityDifficulty}}" min="1">
+                  </label>
+                  <label>
+                    Primary Server
+                    <select name="serverClass">
+                      <option value="Databank" {{#if (eq network.serverClass "Databank")}}selected{{/if}}>Databank</option>
+                      <option value="Alpha" {{#if (eq network.serverClass "Alpha")}}selected{{/if}}>Alpha</option>
+                      <option value="Beta" {{#if (eq network.serverClass "Beta")}}selected{{/if}}>Beta</option>
+                      <option value="Gamma" {{#if (eq network.serverClass "Gamma")}}selected{{/if}}>Gamma</option>
+                      <option value="Delta" {{#if (eq network.serverClass "Delta")}}selected{{/if}}>Delta</option>
+                      <option value="Epsilon" {{#if (eq network.serverClass "Epsilon")}}selected{{/if}}>Epsilon</option>
+                    </select>
+                  </label>
+                </div>
+                <label>
+                  Alert the Network Progress
+                  <select name="alertProgress">
+                    <option value="0" {{#if (eq network.alertProgress 0)}}selected{{/if}}>0 of 2</option>
+                    <option value="1" {{#if (eq network.alertProgress 1)}}selected{{/if}}>1 of 2</option>
+                    <option value="2" {{#if (eq network.alertProgress 2)}}selected{{/if}}>ALERTED</option>
+                  </select>
+                </label>
+                <button type="button" data-action="saveNetwork">
+                  <i class="fa-solid fa-floppy-disk"></i> Save Details
+                </button>
+              </form>
+
+              <div class="cwnce-network-limits">
+                <span><strong>{{nodeCount}}</strong>/{{serverLimits.nodes}} nodes</span>
+                <span><strong>{{barrierCount}}</strong>/{{serverLimits.barriers}} barriers</span>
+                <span>Demons: {{serverLimits.demons}}</span>
+              </div>
+
+              <section class="cwnce-editor-section">
+                <div class="section-heading">
+                  <h3>Nodes</h3>
+                  <button type="button" data-action="addNode"><i class="fa-solid fa-plus"></i></button>
+                </div>
+                <div class="editor-list">
+                  {{#each nodeList}}
+                    <article class="editor-entry {{cssClass}}">
+                      <button type="button" class="entry-main" data-action="selectNode" data-node-id="{{id}}">
+                        <i class="{{icon}}"></i>
+                        <span>{{name}}</span>
+                      </button>
+                      <button type="button" data-action="toggleNodeReveal" data-node-id="{{id}}" title="Reveal or hide">
+                        <i class="fa-solid {{#if revealed}}fa-eye{{else}}fa-eye-slash{{/if}}"></i>
+                      </button>
+                      <button type="button" data-action="editNode" data-node-id="{{id}}" title="Edit">
+                        <i class="fa-solid fa-pen"></i>
+                      </button>
+                      <button type="button" data-action="deleteNode" data-node-id="{{id}}" title="Delete">
+                        <i class="fa-solid fa-trash"></i>
+                      </button>
+                    </article>
+                  {{/each}}
+                </div>
+              </section>
+
+              <section class="cwnce-editor-section">
+                <div class="section-heading">
+                  <h3>Connections</h3>
+                  <button type="button" data-action="addConnection"><i class="fa-solid fa-plus"></i></button>
+                </div>
+                <div class="editor-list">
+                  {{#each connectionList}}
+                    <article class="editor-entry {{#if revealed}}is-revealed{{else}}is-hidden{{/if}}">
+                      <span class="entry-label">
+                        {{label}}
+                        {{#if barrier}}<i class="fa-solid {{#if barrierLocked}}fa-lock{{else}}fa-lock-open{{/if}}"></i>{{/if}}
+                      </span>
+                      <button type="button" data-action="toggleConnectionReveal" data-connection-id="{{id}}" title="Reveal or hide">
+                        <i class="fa-solid {{#if revealed}}fa-eye{{else}}fa-eye-slash{{/if}}"></i>
+                      </button>
+                      <button type="button" data-action="editConnection" data-connection-id="{{id}}" title="Edit">
+                        <i class="fa-solid fa-pen"></i>
+                      </button>
+                      <button type="button" data-action="deleteConnection" data-connection-id="{{id}}" title="Delete">
+                        <i class="fa-solid fa-trash"></i>
+                      </button>
+                    </article>
+                  {{/each}}
+                </div>
+              </section>
+            </aside>
+          {{/if}}
+
+          <main class="cwnce-network-workspace">
+            <header class="cwnce-network-statusbar">
+              <div>
+                <h1>{{network.name}}</h1>
+                {{#if network.idiom}}<p>{{network.idiom}}</p>{{/if}}
+              </div>
+              <div class="network-badges">
+                <span>Security {{network.securityDifficulty}}</span>
+                <span>{{network.serverClass}}</span>
+                <span class="{{#if (eq network.alertProgress 2)}}alerted{{/if}}">{{alertLabel}}</span>
+              </div>
+            </header>
+
+            <div class="cwnce-graph-scroll">
+              <div class="cwnce-graph" style="width:{{graph.width}}px;height:{{graph.height}}px">
+                <svg class="cwnce-graph-edges" viewBox="0 0 {{graph.width}} {{graph.height}}" aria-hidden="true">
+                  <defs>
+                    <marker id="cwnce-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
+                      <path d="M0,0 L8,4 L0,8 Z"></path>
+                    </marker>
+                  </defs>
+                  {{#each graph.connections}}
+                    <line class="{{cssClass}}" x1="{{x1}}" y1="{{y1}}" x2="{{x2}}" y2="{{y2}}"></line>
+                    {{#if barrier}}
+                      <g class="barrier-marker {{#if barrierLocked}}is-locked{{/if}}" transform="translate({{barrierX}} {{barrierY}})">
+                        <circle r="13"></circle>
+                        <text text-anchor="middle" dominant-baseline="central">{{#if barrierLocked}}X{{else}}B{{/if}}</text>
+                      </g>
+                    {{/if}}
+                  {{/each}}
+                </svg>
+
+                {{#each graph.nodes}}
+                  <button
+                    type="button"
+                    class="cwnce-graph-node {{cssClass}}"
+                    style="{{positionStyle}}"
+                    data-action="selectNode"
+                    data-node-id="{{id}}"
+                  >
+                    <i class="{{icon}}"></i>
+                    <strong>{{name}}</strong>
+                    <small>{{typeLabel}}</small>
+                    <span>{{stateLabel}}</span>
+                  </button>
+                {{/each}}
+
+                {{#unless graph.nodes.length}}
+                  <div class="graph-empty">
+                    {{#if isGM}}Add a node to begin mapping this network.{{else}}No nodes have been revealed.{{/if}}
+                  </div>
+                {{/unless}}
+              </div>
+            </div>
+          </main>
+
+          <aside class="cwnce-node-inspector">
+            {{#if selectedNode}}
+              <header>
+                <i class="{{selectedNode.icon}}"></i>
+                <div>
+                  <h2>{{selectedNode.name}}</h2>
+                  <p>{{selectedNode.typeLabel}}</p>
+                </div>
+              </header>
+              <dl>
+                <dt>State</dt>
+                <dd>{{selectedNode.stateLabel}}</dd>
+                {{#if selectedNode.description}}
+                  <dt>Description</dt>
+                  <dd>{{selectedNode.description}}</dd>
+                {{/if}}
+                {{#if selectedNode.datafiles}}
+                  <dt>Datafiles</dt>
+                  <dd>{{selectedNode.datafiles}}</dd>
+                {{/if}}
+                {{#if selectedNode.demons}}
+                  <dt>Demons</dt>
+                  <dd>{{selectedNode.demons}}</dd>
+                {{/if}}
+                {{#if selectedNode.watchdogs}}
+                  <dt>Watchdogs</dt>
+                  <dd>{{selectedNode.watchdogs}}</dd>
+                {{/if}}
+                {{#if isGM}}
+                  {{#if selectedNode.gmNotes}}
+                    <dt>Private GM Notes</dt>
+                    <dd class="gm-notes">{{selectedNode.gmNotes}}</dd>
+                  {{/if}}
+                  <button type="button" data-action="editNode" data-node-id="{{selectedNode.id}}">
+                    <i class="fa-solid fa-pen"></i> Edit Node
+                  </button>
+                {{else}}
+                  <div class="cwnce-action-grid">
+                    {{#each playerActions}}
+                      <button type="button" data-action="requestAction" data-request-id="{{id}}">
+                        <i class="{{icon}}"></i>
+                        <span>{{label}}</span>
+                        <small>{{economy}}</small>
+                      </button>
+                    {{/each}}
+                  </div>
+                  <p class="prototype-note">Requests notify the GM. This prototype does not roll checks, spend Access, consume CPU, or verify prepared Verbs and Subjects.</p>
+                {{/if}}
+              </dl>
+            {{else}}
+              <div class="cwnce-network-empty compact">
+                <i class="fa-solid fa-arrow-pointer"></i>
+                <p>Select a node to inspect it.</p>
+              </div>
+            {{/if}}
+          </aside>
+        </div>
+      {{/if}}
+    {{/if}}
+  {{/unless}}
+</section>
