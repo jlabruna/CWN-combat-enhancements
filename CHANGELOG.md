@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.7.0
+
+- Added optional, target-specific automation for CWN's Prone attack modifiers.
+- Melee attacks made by a prone attacker now take a -4 modifier.
+- Attacks against an adjacent prone target gain +2; distant ranged attacks
+  against a prone target take -2.
+- Prone state and adjacency are captured when the attack is rolled, so later
+  condition changes do not alter an existing chat card.
+- Suppressive Fire now pre-confirms the brace-or-prone requirement when the
+  shooter has the Prone status.
+- Token movement and standing up remain manual.
+
 ## 0.6.2
 
 - Corrected the Suppressive Fire confirmation to state that the weapon must be

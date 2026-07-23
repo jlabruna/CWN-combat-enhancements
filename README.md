@@ -10,6 +10,9 @@ running on **Systems Without Number Redux (SWNR) 2.3.0**.
 - Uses `actor.system.meleeAc` for melee and `actor.system.ac` for ranged attacks.
 - Measures token-center distance with Foundry's grid path measurement.
 - Treats SWNR weapon ranges as meters and converts common scene units.
+- Applies CWN's Prone attack modifiers using condition state captured when the
+  attack is rolled. Touching or diagonally touching token footprints count as
+  adjacent.
 - Applies CWN's −2 modifier beyond normal range and up to maximum range.
 - Reports hit, miss, or out of range separately for each target.
 - Highlights successful Trauma hits separately in blue. A high Trauma Die never
@@ -51,7 +54,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.6.2.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.7.0.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -87,6 +90,8 @@ meters, feet, yards, kilometres, or miles.
   not attach weapon/target metadata to every attack message. A future SWNR card
   markup change may require a compatibility update.
 - Multi-level/elevation distance and wall/line-of-sight checks are not included.
+- Prone affects Target Check attack totals, but this module does not restrict
+  token movement or spend the Move action required to stand.
 
 ## Suppressive Fire workflow
 

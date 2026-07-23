@@ -25,6 +25,16 @@ Hooks.once("init", () => {
     default: true,
     restricted: true,
   });
+
+  game.settings.register(MODULE_ID, "automateProneModifiers", {
+    name: "CWNCE.Settings.AutomateProneModifiers.Name",
+    hint: "CWNCE.Settings.AutomateProneModifiers.Hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    restricted: true,
+  });
 });
 
 Hooks.once("setup", () => {
@@ -193,6 +203,8 @@ Hooks.on("preCreateChatMessage", (message, data, _options, userId) => {
     .map((token) => ({
       sceneId: token.document?.parent?.id ?? canvas.scene?.id ?? null,
       tokenId: token.id,
+      prone: tokenHasStatus(token, "prone"),
+      adjacent: tokensAreAdjacent(attackerToken, token),
     }))
     .filter((ref) => ref.sceneId && ref.tokenId);
 
@@ -201,6 +213,7 @@ Hooks.on("preCreateChatMessage", (message, data, _options, userId) => {
     itemId: source.itemId,
     sceneId: attackerToken?.parent?.id ?? canvas.scene?.id ?? null,
     attackerTokenId: attackerToken?.id ?? message.speaker?.token ?? null,
+    attackerProne: tokenHasStatus(attackerToken, "prone"),
     targets: targetRefs,
     damage: source.damage,
     breakdowns: buildRollBreakdowns(source.rollDetails, weapon),
@@ -557,7 +570,25 @@ function buildResults({ context, weapon, attackTotal, naturalAttackRoll }) {
       rangeBand = "unknown";
     }
 
-    const adjustedTotal = attackTotal + rangeModifier;
+    let attackerProneModifier = 0;
+    let targetProneModifier = 0;
+    let targetPronePosition = null;
+    if (game.settings.get(MODULE_ID, "automateProneModifiers")) {
+      if (context.attackerProne && isMelee) {
+        attackerProneModifier = -4;
+      }
+      if (targetRef.prone) {
+        const adjacent = isMelee || targetRef.adjacent === true;
+        targetProneModifier = adjacent ? 2 : -2;
+        targetPronePosition = adjacent ? "adjacent" : "distant";
+      }
+    }
+
+    const adjustedTotal =
+      attackTotal +
+      rangeModifier +
+      attackerProneModifier +
+      targetProneModifier;
     let result = "unknown";
     if (rangeBand === "out") result = "out";
     else if (naturalAttackRoll === 1) result = "miss";
@@ -575,6 +606,9 @@ function buildResults({ context, weapon, attackTotal, naturalAttackRoll }) {
       distance,
       rangeBand,
       rangeModifier,
+      attackerProneModifier,
+      targetProneModifier,
+      targetPronePosition,
       adjustedTotal,
       result,
     };
@@ -674,11 +708,38 @@ function buildResultsElement({ results, weapon, attackTotal, damage, message }) 
     addDetail(details, game.i18n.localize("CWNCE.Chat.Distance"), formatDistance(result.distance));
     addDetail(details, game.i18n.localize("CWNCE.Chat.Range"), formatRangeBand(result.rangeBand));
 
-    if (result.rangeModifier) {
+    if (result.attackerProneModifier) {
+      addDetail(
+        details,
+        game.i18n.localize("CWNCE.Chat.AttackerProne"),
+        game.i18n.format("CWNCE.Chat.ProneMeleeModifier", {
+          modifier: formatCompactSigned(result.attackerProneModifier),
+        }),
+      );
+    }
+    if (result.targetProneModifier) {
+      const key = result.targetPronePosition === "adjacent"
+        ? "CWNCE.Chat.ProneAdjacentModifier"
+        : "CWNCE.Chat.ProneDistantModifier";
+      addDetail(
+        details,
+        game.i18n.localize("CWNCE.Chat.TargetProne"),
+        game.i18n.format(key, {
+          modifier: formatCompactSigned(result.targetProneModifier),
+        }),
+      );
+    }
+
+    const attackModifiers = [
+      result.rangeModifier,
+      result.attackerProneModifier,
+      result.targetProneModifier,
+    ].filter((modifier) => modifier);
+    if (attackModifiers.length) {
       addDetail(
         details,
         game.i18n.localize("CWNCE.Chat.Attack"),
-        `${attackTotal} ${formatSigned(result.rangeModifier)} = ${result.adjustedTotal}`,
+        `${attackTotal} ${attackModifiers.map(formatSigned).join(" ")} = ${result.adjustedTotal}`,
       );
     } else {
       addDetail(details, game.i18n.localize("CWNCE.Chat.Attack"), String(attackTotal));
@@ -910,6 +971,51 @@ function toFiniteNumber(value) {
   if (value === null || value === undefined || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function tokenHasStatus(tokenLike, statusId) {
+  const token = tokenLike?.document ?? tokenLike;
+  const actor = tokenLike?.actor ?? token?.actor;
+  if (actor?.statuses?.has?.(statusId)) return true;
+
+  return Array.from(actor?.effects ?? []).some((effect) => {
+    if (effect.disabled || effect.isSuppressed) return false;
+    if (effect.statuses?.has?.(statusId)) return true;
+    return effect.getFlag?.("core", "statusId") === statusId;
+  });
+}
+
+/**
+ * Treat touching or overlapping token footprints as adjacent. A small fraction
+ * of a grid space is allowed so freely-positioned tokens do not fail because
+ * of a few pixels of separation. Diagonal contact counts as adjacent.
+ */
+function tokensAreAdjacent(attackerLike, targetLike) {
+  const attackerDocument = attackerLike?.document ?? attackerLike;
+  const targetDocument = targetLike?.document ?? targetLike;
+  if (
+    !attackerDocument ||
+    !targetDocument ||
+    attackerDocument.parent?.id !== targetDocument.parent?.id ||
+    !canvas.ready ||
+    canvas.scene?.id !== attackerDocument.parent?.id
+  ) return null;
+
+  const attacker = attackerLike?.center ? attackerLike : attackerDocument.object;
+  const target = targetLike?.center ? targetLike : targetDocument.object;
+  if (!attacker || !target) return null;
+
+  const gridSize = Number(canvas.grid?.size) || 100;
+  const tolerance = gridSize * 0.15;
+  const horizontalGap = Math.max(
+    0,
+    Math.abs(attacker.center.x - target.center.x) - (attacker.w + target.w) / 2,
+  );
+  const verticalGap = Math.max(
+    0,
+    Math.abs(attacker.center.y - target.center.y) - (attacker.h + target.h) / 2,
+  );
+  return horizontalGap <= tolerance && verticalGap <= tolerance;
 }
 
 function makeNotice(text) {

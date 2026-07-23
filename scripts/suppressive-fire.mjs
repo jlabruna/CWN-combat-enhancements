@@ -215,7 +215,11 @@ async function resolveSuppressiveFire({ weaponModel, damageBonus, statModifier }
   }
 
   const template = await createTemporaryCone({ attacker, direction, rangeMeters: normalRange });
-  const choices = await confirmSuppressiveTargets({ affected, weaponName: weapon.name });
+  const choices = await confirmSuppressiveTargets({
+    affected,
+    weaponName: weapon.name,
+    attackerProne: tokenHasStatus(attacker, "prone"),
+  });
   if (!choices?.braced) {
     if (choices) ui.notifications?.warn(game.i18n.localize("CWNCE.Suppress.Errors.NotBraced"));
     await deleteTemplate(template);
@@ -411,7 +415,7 @@ async function deleteTemplate(template) {
   }
 }
 
-async function confirmSuppressiveTargets({ affected, weaponName }) {
+async function confirmSuppressiveTargets({ affected, weaponName, attackerProne }) {
   const rows = affected.map((token) => `
     <label class="cwnce-cover-choice">
       <input type="checkbox" data-token-id="${escapeHtml(token.id)}">
@@ -422,7 +426,7 @@ async function confirmSuppressiveTargets({ affected, weaponName }) {
     <form class="cwnce-suppress-confirmation">
       <p>${escapeHtml(game.i18n.format("CWNCE.Suppress.Dialog.ConfirmText", { weapon: weaponName }))}</p>
       <label class="cwnce-braced-choice">
-        <input type="checkbox" name="braced">
+        <input type="checkbox" name="braced" ${attackerProne ? "checked" : ""}>
         ${escapeHtml(game.i18n.localize("CWNCE.Suppress.Dialog.Braced"))}
       </label>
       <fieldset>
@@ -788,6 +792,18 @@ function finiteNumber(value) {
   if (value === null || value === undefined || value === "") return null;
   const number = Number(value);
   return Number.isFinite(number) ? number : null;
+}
+
+function tokenHasStatus(tokenLike, statusId) {
+  const token = tokenLike?.document ?? tokenLike;
+  const actor = tokenLike?.actor ?? token?.actor;
+  if (actor?.statuses?.has?.(statusId)) return true;
+
+  return Array.from(actor?.effects ?? []).some((effect) => {
+    if (effect.disabled || effect.isSuppressed) return false;
+    if (effect.statuses?.has?.(statusId)) return true;
+    return effect.getFlag?.("core", "statusId") === statusId;
+  });
 }
 
 function escapeHtml(value) {
