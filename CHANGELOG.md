@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.8.1
+
+- Fixed a mismatched Handlebars block that prevented the Network Console window
+  from rendering when opened from either launcher.
+
 ## 0.8.0
 
 - Added an opt-in experimental Network Console for visualizing CWN networks.
