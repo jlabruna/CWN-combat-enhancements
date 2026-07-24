@@ -57,7 +57,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.8.1.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.9.0.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -102,11 +102,18 @@ player-facing details. Private GM notes are never included in that projection.
 
 Players can select a revealed node and send CWN-labelled requests to the GM,
 including **Jack In**, **Move Nodes**, **Look for Hidden Connections**, **Run a
-Program**, **Copy File**, and **Issue Command**. These requests are a
-visualization and table-communication aid only. This prototype does not yet:
+Program**, **Copy File**, and **Issue Command**.
 
-- inspect a hacker's cyberdeck;
-- validate prepared Verb and Subject programs;
+**Run a Program** finds SWNR cyberdeck Actors linked to a hacker controlled by
+the requesting player. The player can only choose Verbs and Subjects embedded
+on that cyberdeck, which are the programs prepared on it. The request is blocked
+when the Verb's allowed target types do not match the selected Subject. The GM
+receives the hacker, cyberdeck, combined program, Access cost, check modifier,
+and selected node.
+
+These requests are still a visualization and table-communication aid. The
+prototype does not yet:
+
 - roll Program checks or resolve defensive programs;
 - spend Access or CPU;
 - automate Alert the Network;
@@ -168,6 +175,14 @@ target for manual resolution and does not apply damage automatically.
   buttons remain available for GM corrections or exceptional rules.
 
 ## Changes
+
+### 0.9.0
+
+- Run a Program now reads the acting player's linked SWNR cyberdeck.
+- Only Verbs and Subjects prepared on that deck can be requested.
+- Incompatible program target types are rejected before sending the request.
+- GM notifications include the hacker, cyberdeck, program, Access cost, check
+  modifier, and network node.
 
 ### 0.8.1
 

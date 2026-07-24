@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.9.0
+
+- Connected Network Console program requests to SWNR cyberdeck Actors.
+- Run a Program now finds cyberdecks linked to hackers controlled by the
+  requesting player.
+- Players can only choose Verbs and Subjects actually loaded on the selected
+  cyberdeck.
+- Incompatible Verb and Subject target types are rejected before a request is
+  sent.
+- GM requests identify the hacker, cyberdeck, prepared program, Access cost,
+  check modifier, and selected network node.
+- Program checks, Access spending, CPU use, and program effects remain manual.
+
 ## 0.8.1
 
 - Fixed a mismatched Handlebars block that prevented the Network Console window

@@ -6,7 +6,7 @@
   "CWNCE.Settings.AutomateProneModifiers.Name": "Apply CWN Prone attack modifiers",
   "CWNCE.Settings.AutomateProneModifiers.Hint": "When enabled, Target Checks apply CWN's Prone modifiers. Melee attacks made while prone take -4; attacks against adjacent prone targets gain +2; distant ranged attacks against prone targets take -2.",
   "CWNCE.Network.Settings.Enabled.Name": "Enable experimental Network Console",
-  "CWNCE.Network.Settings.Enabled.Hint": "Adds a shared CWN network-mapping console and launcher. This prototype is for visualizing nodes, connections, Barriers, and player action requests; it does not yet automate hacking checks or validate prepared Verbs and Subjects. Requires a reload.",
+  "CWNCE.Network.Settings.Enabled.Hint": "Adds a shared CWN network-mapping console and launcher. Run a Program validates Verbs and Subjects prepared on a linked SWNR cyberdeck; checks and resource spending remain manual. Requires a reload.",
   "CWNCE.Network.Settings.Menu.Name": "Network Console",
   "CWNCE.Network.Settings.Menu.Label": "Open Network Console",
   "CWNCE.Network.Settings.Menu.Hint": "Open the shared Network Console. The experimental Network Console setting must be enabled.",

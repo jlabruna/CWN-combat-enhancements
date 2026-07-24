@@ -340,6 +340,163 @@ function userCanViewProjection(network) {
   return authorized.length === 0 || authorized.includes(game.user.id) || game.user.isGM;
 }
 
+function getLinkedHacker(cyberdeck) {
+  if (!cyberdeck || cyberdeck.type !== "cyberdeck") return null;
+  if (typeof cyberdeck.system?.getHacker === "function") {
+    return cyberdeck.system.getHacker();
+  }
+  const hackerId = cyberdeck.system?.hackerId;
+  return hackerId ? game.actors.get(hackerId) ?? null : null;
+}
+
+function getPreparedCyberdecks() {
+  return game.actors
+    .filter((actor) => actor.type === "cyberdeck")
+    .map((cyberdeck) => {
+      const hacker = getLinkedHacker(cyberdeck);
+      if (!hacker || (!game.user.isGM && !hacker.isOwner)) return null;
+
+      const programs = cyberdeck.items.filter((item) => item.type === "program");
+      return {
+        cyberdeck,
+        hacker,
+        verbs: programs.filter((item) => item.system?.type === "verb"),
+        subjects: programs.filter((item) => item.system?.type === "subject"),
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) =>
+      `${a.hacker.name} ${a.cyberdeck.name}`.localeCompare(
+        `${b.hacker.name} ${b.cyberdeck.name}`,
+      ),
+    );
+}
+
+function programTargets(program) {
+  return String(program?.system?.target ?? "")
+    .split("/")
+    .map((target) => target.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function programsAreCompatible(verb, subject) {
+  const allowedTargets = new Set(programTargets(verb));
+  const subjectTargets = programTargets(subject);
+  return subjectTargets.some((target) => allowedTargets.has(target));
+}
+
+function preparedProgramOptionMarkup(programs) {
+  return programs
+    .map((program) => {
+      const target = String(program.system?.target ?? "").trim();
+      const suffix = target ? ` — ${target}` : "";
+      return `<option value="${program.id}">${foundry.utils.escapeHTML(`${program.name}${suffix}`)}</option>`;
+    })
+    .join("");
+}
+
+async function choosePreparedProgram() {
+  const availableDecks = getPreparedCyberdecks();
+  if (!availableDecks.length) {
+    ui.notifications.warn(
+      "No cyberdeck linked to a hacker you control was found. Assign the hacker on the SWNR cyberdeck sheet first.",
+    );
+    return null;
+  }
+
+  let selectedDeck = availableDecks[0];
+  if (availableDecks.length > 1) {
+    const deckOptions = availableDecks
+      .map(({ cyberdeck, hacker }) =>
+        `<option value="${cyberdeck.id}">${foundry.utils.escapeHTML(`${hacker.name} — ${cyberdeck.name}`)}</option>`,
+      )
+      .join("");
+    const deckData = await waitForFormDialog({
+      title: "Choose Hacker and Cyberdeck",
+      saveLabel: "Choose Cyberdeck",
+      content: `
+        <p class="hint">Only cyberdecks linked to a hacker you control are listed.</p>
+        <div class="form-group">
+          <label>Hacker — Cyberdeck</label>
+          <select name="cyberdeckId" required autofocus>${deckOptions}</select>
+        </div>
+      `,
+    });
+    if (!deckData?.cyberdeckId) return null;
+    selectedDeck =
+      availableDecks.find(({ cyberdeck }) => cyberdeck.id === deckData.cyberdeckId) ??
+      null;
+    if (!selectedDeck) {
+      ui.notifications.error("The selected cyberdeck is no longer available.");
+      return null;
+    }
+  }
+
+  if (!selectedDeck.verbs.length || !selectedDeck.subjects.length) {
+    const missing = [
+      !selectedDeck.verbs.length ? "a Verb" : "",
+      !selectedDeck.subjects.length ? "a Subject" : "",
+    ]
+      .filter(Boolean)
+      .join(" and ");
+    ui.notifications.warn(
+      `${selectedDeck.cyberdeck.name} needs ${missing} loaded before it can run a program.`,
+    );
+    return null;
+  }
+
+  const programData = await waitForFormDialog({
+    title: "Request: Run a Prepared Program",
+    saveLabel: "Send Request",
+    content: `
+      <p class="hint">
+        Hacker: <strong>${foundry.utils.escapeHTML(selectedDeck.hacker.name)}</strong><br>
+        Cyberdeck: <strong>${foundry.utils.escapeHTML(selectedDeck.cyberdeck.name)}</strong><br>
+        Only Verbs and Subjects loaded on this cyberdeck are available.
+      </p>
+      <div class="form-group">
+        <label>Prepared Verb</label>
+        <select name="verbId" required autofocus>
+          ${preparedProgramOptionMarkup(selectedDeck.verbs)}
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Prepared Subject</label>
+        <select name="subjectId" required>
+          ${preparedProgramOptionMarkup(selectedDeck.subjects)}
+        </select>
+      </div>
+    `,
+  });
+  if (!programData?.verbId || !programData?.subjectId) return null;
+
+  const verb = selectedDeck.verbs.find((item) => item.id === programData.verbId);
+  const subject = selectedDeck.subjects.find((item) => item.id === programData.subjectId);
+  if (!verb || !subject) {
+    ui.notifications.error(
+      "The selected Verb or Subject is no longer loaded on that cyberdeck.",
+    );
+    return null;
+  }
+  if (!programsAreCompatible(verb, subject)) {
+    ui.notifications.warn(
+      `${verb.name} cannot target ${subject.name}. Choose a Subject matching ${verb.system?.target || "the Verb's allowed target type"}.`,
+    );
+    return null;
+  }
+
+  return {
+    hacker: selectedDeck.hacker,
+    cyberdeck: selectedDeck.cyberdeck,
+    verb,
+    subject,
+    accessCost: Number(verb.system?.accessCost) || 0,
+    skillCheckMod:
+      (Number(verb.system?.skillCheckMod) || 0) +
+      (Number(subject.system?.skillCheckMod) || 0),
+  };
+}
+
 function handleNetworkSocket(payload) {
   if (!isNetworkConsoleEnabled() || !payload?.type) return;
 
@@ -968,24 +1125,26 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
     if (!action) return;
 
     let detail = "";
+    let program = null;
     if (action.id === "runProgram") {
-      const data = await waitForFormDialog({
-        title: "Request: Run a Program",
-        saveLabel: "Send Request",
-        content: `
-          <p class="hint">This prototype records your declared Verb and Subject. It does not yet inspect your cyberdeck or resolve the program.</p>
-          <div class="form-group">
-            <label>Verb</label>
-            <input type="text" name="verb" placeholder="Glitch" required autofocus>
-          </div>
-          <div class="form-group">
-            <label>Subject</label>
-            <input type="text" name="subject" placeholder="Camera" required>
-          </div>
-        `,
-      });
-      if (!data?.verb || !data?.subject) return;
-      detail = `${String(data.verb).trim()} ${String(data.subject).trim()}`;
+      const selection = await choosePreparedProgram();
+      if (!selection) return;
+      detail =
+        `${selection.hacker.name} using ${selection.cyberdeck.name}: ` +
+        `${selection.verb.name} ${selection.subject.name} ` +
+        `(Access ${selection.accessCost}, check modifier ${selection.skillCheckMod >= 0 ? "+" : ""}${selection.skillCheckMod})`;
+      program = {
+        hackerId: selection.hacker.id,
+        hackerName: selection.hacker.name,
+        cyberdeckId: selection.cyberdeck.id,
+        cyberdeckName: selection.cyberdeck.name,
+        verbId: selection.verb.id,
+        verbName: selection.verb.name,
+        subjectId: selection.subject.id,
+        subjectName: selection.subject.name,
+        accessCost: selection.accessCost,
+        skillCheckMod: selection.skillCheckMod,
+      };
     }
 
     game.socket.emit(SOCKET_NAME, {
@@ -998,6 +1157,7 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
       actionId: action.id,
       actionLabel: `${action.label} (${action.economy})`,
       detail,
+      program,
     });
     ui.notifications.info(`Request sent: ${action.label}`);
   }
