@@ -210,7 +210,8 @@ async function reloadFromSelectedMagazine({ application, event, weapon }) {
 
 function enhanceWeaponSheet(application, item, root) {
   const nativeAmmoType = root.querySelector('[name="system.ammo.type"]');
-  const nativeAmmoGroup = nativeAmmoType?.closest(".form-group")
+  const nativeAmmoGroup = nativeAmmoType?.closest(".resource.grid-span-2")
+    ?? nativeAmmoType?.closest(".resource")
     ?? nativeAmmoType?.parentElement;
   const ammoGrid = nativeAmmoGroup?.closest(".grid");
   if (!nativeAmmoType || !nativeAmmoGroup || !ammoGrid) {

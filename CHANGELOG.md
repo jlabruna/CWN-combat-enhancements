@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.1
+
+- Fixed the Weapon Family field failing to appear on SWNR 2.3.x weapon sheets
+  by targeting the outer Ammo Type resource container used by the ammunition
+  grid.
+- Restored the GM-only Advanced SWNR Compatibility section and its Native Ammo
+  Type control.
+
 ## 0.10.0
 
 - Added centralized Weapon Family resolution from Combat Enhancements

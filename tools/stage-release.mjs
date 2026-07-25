@@ -30,8 +30,8 @@ for (const directory of directories) {
 const manifest = JSON.parse(
   await fs.readFile(path.join(stageRoot, "module.json"), "utf8"),
 );
-if (manifest.version !== "0.10.0") {
-  throw new Error(`Expected module version 0.10.0 but found ${manifest.version}.`);
+if (manifest.version !== "0.10.1") {
+  throw new Error(`Expected module version 0.10.1 but found ${manifest.version}.`);
 }
 for (const script of manifest.esmodules ?? []) {
   await fs.access(path.join(stageRoot, script));
