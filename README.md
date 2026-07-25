@@ -40,10 +40,16 @@ running on **Systems Without Number Redux (SWNR) 2.3.0**.
 - Includes an optional experimental **Network Console** for mapping CWN network
   nodes, connections, hidden connections, Barriers, and visible network
   contents. It is disabled by default.
+- Adds Weapon Family metadata to SWNR weapon sheets without overwriting the
+  native Ammo Type field.
+- Optionally reloads family-aware weapons from a selected, actor-owned physical
+  magazine with the exact same family, preserving partial magazines and deleting
+  depleted magazine Items.
 
-Ordinary attacks continue to use SWNR's original rolls and ammunition handling.
-Suppressive Fire has its own rules workflow and spends two rounds. Hard cover is
-selected manually in its confirmation window.
+Ordinary attacks continue to use SWNR's original rolls and loaded-ammunition
+expenditure. The optional magazine feature only replaces the actor-sheet reload
+action for family-aware weapons. Suppressive Fire has its own rules workflow and
+spends two rounds. Hard cover is selected manually in its confirmation window.
 
 ## Install on The Forge
 
@@ -57,7 +63,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.9.0.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.10.0.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -81,6 +87,54 @@ meters, feet, yards, kilometres, or miles.
 - Base/derived AC schema: `module/data/actors/base-actor.mjs`.
 - Character AC derivation: `module/data/actors/actor-character.mjs`.
 - Ranged AC: `actor.system.ac`; melee AC: `actor.system.meleeAc`.
+- Weapon sheet: `templates/item/attribute-parts/weapon.hbs`.
+- Native ammunition source: `weapon.system.ammo.current`.
+- Loaded rounds: `weapon.system.ammo.value/max`.
+- Count-based magazine rounds: `item.system.uses.value/max`, with
+  `item.system.uses.consumable === "count"`.
+- Actor-sheet reload action: `SWNActorSheet.DEFAULT_OPTIONS.actions.reload`,
+  originally inherited from `SWNBaseSheet._onReload()`.
+
+## Weapon Families and physical magazines
+
+Weapon Family is semantic compatibility metadata, not a displayed-name match.
+Family keys are lowercase slugs such as `combat-rifle` or `heavy-pistol`.
+
+The module resolves a weapon family in this order:
+
+1. `flags["cwn-combat-enhancements"].weaponFamily`
+2. `flags["cwn-content-pack"].weaponFamily`
+3. Recognized legacy
+   `flags["harbour-city-stories"].baseWeapon` values through a controlled map
+4. No family, which preserves native SWNR behavior
+
+Magazine family resolution uses:
+
+1. `flags["cwn-combat-enhancements"].magazineFamily`
+2. `flags["cwn-content-pack"].magazineFamily`
+
+The **Weapon Family Editing** world setting controls whether the override is
+editable by the GM only (default), Item owners, or nobody. The permission is
+enforced on both the sheet and `preUpdateItem`; disabling an input is not the
+only protection.
+
+The **Enable exact magazine automation** world setting defaults to enabled.
+When enabled, a family-aware weapon can reload only from its selected,
+actor-owned `count` consumable with the exact same Magazine Family and at least
+one round. Readied and Stowed magazines are both accepted; location is
+deliberately ignored.
+
+Reloading transfers only the lesser of the weapon's missing rounds and the
+selected magazine's remaining rounds. A partial magazine remains a distinct
+Item. A depleted magazine is set to zero, its stale weapon reference is cleared,
+and the embedded Item is deleted. Empty magazines are not created, magazines
+are never merged, and this module does not provide refilling or Encumbrance
+rules.
+
+CWN Content Pack integration is optional. Untagged weapons and worlds with exact
+magazine automation disabled use SWNR's native ammunition source selection and
+reload logic. GMs can still find **Native Ammo Type** under **Advanced SWNR
+Compatibility** on the weapon sheet.
 
 ## Experimental Network Console
 
@@ -135,6 +189,12 @@ designated-player sharing can be added without redesigning saved networks.
 - Multi-level/elevation distance and wall/line-of-sight checks are not included.
 - Prone affects Target Check attack totals, but this module does not restrict
   token movement or spend the Move action required to stand.
+- Weapon-sheet and reload integration targets SWNR 2.3.x. If SWNR changes the
+  weapon template or `SWNActorSheet.DEFAULT_OPTIONS.actions.reload`, the module
+  logs a compatibility warning and leaves the affected integration unpatched.
+- Physical magazine Items are expected to be supplied by a content module or
+  created by the user. Version 0.10.0 does not create or migrate weapons or
+  magazines.
 
 ## Suppressive Fire workflow
 
@@ -175,6 +235,20 @@ target for manual resolution and does not apply damage automatically.
   buttons remain available for GM corrections or exceptional rules.
 
 ## Changes
+
+### 0.10.0
+
+- Added centralized Weapon Family and Magazine Family resolution with optional
+  CWN Content Pack and controlled legacy metadata support.
+- Replaced the ordinary weapon-sheet Ammo Type presentation with a
+  permission-controlled Weapon Family field while retaining native Ammo Type in
+  a GM-only advanced compatibility section.
+- Added optional exact-family magazine selection and partial-round transfer.
+- Depleted embedded magazine Items are deleted after their remaining rounds and
+  the weapon's stale source reference are safely updated.
+- Added automated family, permission, compatibility, and reload-calculation
+  tests plus a focused Foundry manual regression checklist.
+- Added repeatable release staging and a tag-driven GitHub Actions build.
 
 ### 0.9.0
 

@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.10.0
+
+- Added centralized Weapon Family resolution from Combat Enhancements
+  overrides, optional Content Pack metadata, and recognized legacy base-weapon
+  flags.
+- Added Magazine Family resolution from Combat Enhancements and optional
+  Content Pack metadata.
+- Replaced the normal weapon-sheet Ammo Type presentation with Weapon Family,
+  including known choices, custom slug keys, an Unassigned state, and read-only
+  presentation when editing is not permitted.
+- Preserved Native Ammo Type in a GM-only Advanced SWNR Compatibility section.
+- Added GM Only, Item Owners, and Nobody Weapon Family editing modes, enforced
+  by both the sheet and `preUpdateItem`.
+- Added optional exact-family physical-magazine reload automation, enabled by
+  default.
+- Added partial magazine transfer, safe depleted-magazine deletion, and stale
+  selected-ammunition cleanup.
+- Accepted both Readied and Stowed magazines while deliberately ignoring
+  location.
+- Preserved native SWNR reload behavior for untagged weapons and when exact
+  magazine automation is disabled.
+- Added Node test coverage, repeatable release staging, and a tag-driven GitHub
+  Actions release build.
+
 ## 0.9.0
 
 - Connected Network Console program requests to SWNR cyberdeck Actors.

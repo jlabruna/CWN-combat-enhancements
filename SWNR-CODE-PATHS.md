@@ -112,6 +112,55 @@ Saving throw targets are read from:
 - Characters: `actor.system.save.evasion`
 - NPCs: `actor.system.saves`
 
+## Weapon Family and magazine reload integration
+
+`module/data/items/item-weapon.mjs` defines the native weapon ammunition fields:
+
+- `system.ammo.type`
+- `system.ammo.current`
+- `system.ammo.value`
+- `system.ammo.max`
+
+`module/data/items/item-item.mjs` defines count-based consumables through:
+
+- `system.uses.consumable === "count"`
+- `system.uses.value`
+- `system.uses.max`
+
+`module/sheets/item-sheet.mjs`, `_getRelatedItems()`, filters native ammunition
+sources by `system.uses.ammo === weapon.system.ammo.type`. In SWNR 2.3.0 that
+item-sheet list is only populated for character parents.
+
+`templates/item/attribute-parts/weapon.hbs` renders the source selector as
+`system.ammo.current` and the visible native Ammo Type control as
+`system.ammo.type`. Version 0.10.0 uses a narrow `renderApplicationV2` hook to
+add Weapon Family controls, filter family-aware magazine choices, and move the
+unchanged native type field into a GM-only advanced compatibility section.
+
+`module/sheets/base-sheet.mjs`, `SWNBaseSheet._onReload()`, is the native reload
+implementation. `module/sheets/actor-sheet.mjs` registers that inherited
+function by reference at
+`SWNActorSheet.DEFAULT_OPTIONS.actions.reload`. Version 0.10.0 therefore wraps
+that one action reference rather than broadly patching Item or Actor documents.
+
+The wrapper intercepts only family-aware non-infinite weapons while the feature
+setting is enabled. Everything else calls the original action. It resolves the
+weapon from `this._getEmbeddedDocument(target)` and uses `this.actor`, retaining
+SWNR's actor-sheet behavior for linked actors and synthetic/unlinked token
+actors.
+
+SWNR's `SWNActor` and `SWNItem` document classes do not override Foundry's
+embedded update or delete APIs. The module updates the embedded weapon and
+selected magazine together through `actor.updateEmbeddedDocuments()`. A
+depleted magazine is first persisted at zero with the weapon reference cleared,
+then removed through `actor.deleteEmbeddedDocuments()`, preventing duplicated
+rounds if deletion fails.
+
+Ordinary and Burst attacks continue through `SWNWeapon.rollAttack()`, which
+spends loaded rounds from `system.ammo.value`. Suppressive Fire continues to
+spend two loaded rounds through the module's existing weapon update. The
+magazine wrapper does not replace either attack path.
+
 ## Extension boundary
 
 Normal target checking and damage integration use Foundry chat lifecycle hooks
@@ -119,3 +168,7 @@ and do not replace SWNR's attack implementation. The Suppressive Fire feature
 adds the scoped weapon-method wrappers described above because SWNR has no
 native Suppressive Fire dialog or resolution path. The wrappers are marked with
 module-specific symbols to prevent duplicate installation.
+
+The magazine feature similarly marks its actor-sheet action wrapper with a
+module-specific symbol. It expects SWNR 2.3.x and logs a one-time warning if the
+version, action reference, or weapon-sheet ammunition structure is unavailable.
