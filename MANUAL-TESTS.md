@@ -1,6 +1,6 @@
 # Foundry VTT v13 / SWNR 2.3.x manual test checklist
 
-Use a disposable world with CWN Combat Enhancements 0.10.0 enabled. Test with
+Use a disposable world with CWN Combat Enhancements 0.10.4 enabled. Test with
 actor-owned weapon and magazine Items. Give each magazine
 `type: "item"`, `system.uses.consumable: "count"`, positive
 `system.uses.value/max`, and a Magazine Family flag.
@@ -9,6 +9,23 @@ Do not claim runtime success until these checks have been completed in Foundry.
 
 ## Reload calculations and selection
 
+- [ ] With automatic selection enabled, a valid current magazine remains
+      selected and is used normally.
+- [ ] Missing, stale, empty, and wrong-family current references are replaced
+      by a compatible non-empty actor-owned magazine.
+- [ ] When the weapon needs 8 rounds and compatible magazines contain 5, 12,
+      and 30 rounds, Reload selects the 12-round magazine.
+- [ ] When the weapon needs 20 rounds and compatible magazines contain 5, 12,
+      and 18 rounds, Reload selects the 18-round magazine.
+- [ ] Otherwise-equal candidates always select the lexically earlier Item ID.
+- [ ] With no compatible non-empty magazine, Reload warns “No compatible
+      magazine available.” and does not invoke native reload.
+- [ ] Disabling automatic selection restores the v0.10.3 requirement to choose
+      a magazine manually.
+- [ ] An automatically selected partial magazine remains selected and appears
+      in the visible selector after reloading.
+- [ ] An automatically selected depleted magazine is deleted and the visible
+      selector and `system.ammo.current` are cleared.
 - [ ] Weapon 22/30 plus matching magazine 30/30 becomes 30/30 and 22/30.
 - [ ] Weapon 0/30 plus matching magazine 30/30 becomes 30/30 and deletes the
       depleted magazine.

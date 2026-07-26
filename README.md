@@ -63,7 +63,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.10.3.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.10.4.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -123,6 +123,15 @@ When enabled, a family-aware weapon can reload only from its selected,
 actor-owned `count` consumable with the exact same Magazine Family and at least
 one round. Readied and Stowed magazines are both accepted; location is
 deliberately ignored.
+
+The **Automatically select compatible magazine** world setting also defaults to
+enabled. Reload keeps a valid current selection. If that reference is missing,
+stale, empty, or incompatible, the module selects the compatible magazine with
+the smallest remaining amount that can completely fill the weapon. If none can
+fill it, the module selects the compatible magazine with the most rounds.
+Otherwise-equal candidates use their Item ID as a deterministic tie-breaker.
+Disable this setting to retain the v0.10.3 requirement to choose a magazine
+manually.
 
 Reloading transfers only the lesser of the weapon's missing rounds and the
 selected magazine's remaining rounds. A partial magazine remains a distinct
@@ -193,7 +202,7 @@ designated-player sharing can be added without redesigning saved networks.
   weapon template or `SWNActorSheet.DEFAULT_OPTIONS.actions.reload`, the module
   logs a compatibility warning and leaves the affected integration unpatched.
 - Physical magazine Items are expected to be supplied by a content module or
-  created by the user. Version 0.10.3 does not create or migrate weapons or
+  created by the user. Version 0.10.4 does not create or migrate weapons or
   magazines.
 
 ## Suppressive Fire workflow
@@ -235,6 +244,18 @@ target for manual resolution and does not apply damage automatically.
   buttons remain available for GM corrections or exceptional rules.
 
 ## Changes
+
+### 0.10.4
+
+- Automatically selects a compatible physical magazine when the current
+  selection is missing, stale, empty, or incompatible.
+- Prefers the smallest magazine that can fill the weapon, otherwise the
+  compatible magazine with the most rounds, with deterministic Item-ID
+  tie-breaking.
+- Added an enabled-by-default world setting that can restore v0.10.3 manual
+  selection behavior.
+- Preserved exact transfer, depleted-magazine deletion, partial-magazine
+  retention, visible selector updates, and native SWNR fallbacks.
 
 ### 0.10.3
 

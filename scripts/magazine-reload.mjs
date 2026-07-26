@@ -3,14 +3,15 @@ import {
   MODULE_ID,
   WEAPON_FAMILIES,
   MagazineReloadError,
+  calculateRoundsNeeded,
   canEditWeaponFamily,
   compatibleMagazines,
   familyLabel,
   formatMagazineOption,
-  isCountBasedMagazine,
   normalizeFamilyKey,
+  qualifiesForExactMagazineHandling,
   readWeaponFamilyChange,
-  resolveMagazineFamily,
+  resolveReloadMagazine,
   resolveWeaponFamily,
   transferMagazineRounds,
 } from "./weapon-family.mjs";
@@ -37,6 +38,16 @@ Hooks.once("init", () => {
   game.settings.register(MODULE_ID, "exactMagazineAutomation", {
     name: "CWNCE.Settings.ExactMagazineAutomation.Name",
     hint: "CWNCE.Settings.ExactMagazineAutomation.Hint",
+    scope: "world",
+    config: true,
+    type: Boolean,
+    default: true,
+    restricted: true,
+  });
+
+  game.settings.register(MODULE_ID, "autoSelectCompatibleMagazine", {
+    name: "CWNCE.Settings.AutoSelectCompatibleMagazine.Name",
+    hint: "CWNCE.Settings.AutoSelectCompatibleMagazine.Hint",
     scope: "world",
     config: true,
     type: Boolean,
@@ -123,14 +134,13 @@ function installActorReloadHandlers(application, root) {
 }
 
 function shouldUseExactMagazineReload(weapon) {
-  return Boolean(
-    isSupportedSwnr()
-    && game.settings.get(MODULE_ID, "exactMagazineAutomation")
-    && weapon?.type === "weapon"
-    && weapon.system?.ammo?.type !== "none"
-    && weapon.system?.ammo?.type !== "infinite"
-    && resolveWeaponFamily(weapon),
-  );
+  return qualifiesForExactMagazineHandling(weapon, {
+    supportedSwnr: isSupportedSwnr(),
+    exactMagazineAutomation: game.settings.get(
+      MODULE_ID,
+      "exactMagazineAutomation",
+    ),
+  });
 }
 
 async function reloadFromSelectedMagazine({ application, event, weapon }) {
@@ -143,29 +153,53 @@ async function reloadFromSelectedMagazine({ application, event, weapon }) {
     return;
   }
 
-  const selectedId = weapon.system?.ammo?.current;
-  const magazine = selectedId ? actor.items.get(selectedId) : null;
   const weaponFamily = resolveWeaponFamily(weapon);
-  if (
-    !magazine
-    || !isCountBasedMagazine(magazine)
-    || resolveMagazineFamily(magazine) !== weaponFamily
-  ) {
+  const selectedId = weapon.system?.ammo?.current ?? "";
+  const selectedItem = selectedId ? actor.items.get(selectedId) : null;
+  const roundsNeeded = calculateRoundsNeeded(weapon);
+  const selection = resolveReloadMagazine({
+    items: actor.items,
+    selectedId,
+    weaponFamily,
+    roundsNeeded,
+    autoSelect: game.settings.get(MODULE_ID, "autoSelectCompatibleMagazine"),
+  });
+  const magazine = selection.magazine;
+
+  if (!magazine) {
     if (selectedId) {
       await weapon.update({ "system.ammo.current": "" });
+      updateVisibleMagazineSelector(application, "");
     }
     ui.notifications?.error(
       game.i18n.localize(
-        magazine
-          ? "CWNCE.Magazine.Errors.InvalidSelection"
-          : "CWNCE.Magazine.Errors.NoSelection",
+        selection.reason === "no-compatible"
+          ? "CWNCE.Magazine.Errors.NoCompatible"
+          : selectedItem
+            ? "CWNCE.Magazine.Errors.InvalidSelection"
+            : "CWNCE.Magazine.Errors.NoSelection",
       ),
     );
     return;
   }
 
+  if (roundsNeeded <= 0) {
+    ui.notifications?.error(
+      game.i18n.localize("CWNCE.Magazine.Errors.WeaponFull"),
+    );
+    return;
+  }
+
   try {
+    if (selection.automaticallySelected) {
+      await weapon.update({ "system.ammo.current": magazine.id });
+      updateVisibleMagazineSelector(application, magazine.id);
+    }
     const result = await transferMagazineRounds({ actor, weapon, magazine });
+    updateVisibleMagazineSelector(
+      application,
+      result.magazineDeleted ? "" : result.magazineId,
+    );
     const content = game.i18n.format("CWNCE.Magazine.Chat.Reloaded", {
       weapon: result.weaponName,
       magazine: result.magazineName,
@@ -198,6 +232,17 @@ async function reloadFromSelectedMagazine({ application, event, weapon }) {
       game.i18n.localize(key ?? "CWNCE.Magazine.Errors.Failed"),
     );
   }
+}
+
+function updateVisibleMagazineSelector(application, itemId) {
+  const element = application?.element ?? application?._element;
+  const root = element?.querySelector
+    ? element
+    : element?.[0]?.querySelector
+      ? element[0]
+      : null;
+  const selector = root?.querySelector?.("[data-cwnce-magazine-selector]");
+  if (selector) selector.value = itemId;
 }
 
 function enhanceWeaponSheet(application, item, root) {

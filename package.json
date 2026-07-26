@@ -1,7 +1,7 @@
 {
   "name": "cwn-combat-enhancements",
   "private": true,
-  "version": "0.10.3",
+  "version": "0.10.4",
   "type": "module",
   "scripts": {
     "check": "node --check scripts/cwn-combat-enhancements.mjs && node --check scripts/magazine-reload.mjs && node --check scripts/weapon-family.mjs && node --check scripts/suppressive-fire.mjs && node --check scripts/network-console/network-console.mjs && node --check tools/stage-release.mjs",

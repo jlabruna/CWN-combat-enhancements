@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.10.4
+
+- Added automatic compatible-magazine selection when Reload is clicked.
+- Retained a valid current magazine; missing, stale, empty, and incompatible
+  references are replaced automatically.
+- Selection prefers the smallest sufficient magazine, or the largest
+  insufficient magazine, with deterministic Item-ID tie-breaking.
+- Added the enabled-by-default **Automatically select compatible magazine**
+  world setting. Disabling it preserves v0.10.3 manual selection.
+- Family-aware exact reloads now warn without calling native reload when no
+  compatible non-empty magazine exists.
+- Preserved partial-magazine retention, depleted-magazine deletion and
+  reference cleanup, visible selector updates, location independence, and all
+  native SWNR fallback cases.
+
 ## 0.10.3
 
 - Fixed family-aware actor-sheet reload clicks using SWNR's cached native reload

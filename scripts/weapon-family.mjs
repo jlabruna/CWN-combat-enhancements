@@ -91,6 +91,92 @@ export function compatibleMagazines(items, weaponFamily) {
   );
 }
 
+export function calculateRoundsNeeded(weapon) {
+  const maximum = Math.max(0, finiteNumber(weapon?.system?.ammo?.max) ?? 0);
+  const current = Math.min(
+    maximum,
+    Math.max(0, finiteNumber(weapon?.system?.ammo?.value) ?? 0),
+  );
+  return Math.max(0, maximum - current);
+}
+
+export function selectCompatibleMagazine(items, weaponFamily, roundsNeeded) {
+  const needed = Math.max(0, finiteNumber(roundsNeeded) ?? 0);
+  const candidates = compatibleMagazines(items, weaponFamily);
+  if (candidates.length === 0) return null;
+
+  const sufficient = candidates
+    .filter((item) => magazineRounds(item) >= needed)
+    .sort((left, right) =>
+      magazineRounds(left) - magazineRounds(right)
+      || compareItemIds(left, right));
+  if (sufficient.length > 0) return sufficient[0];
+
+  return candidates.sort((left, right) =>
+    magazineRounds(right) - magazineRounds(left)
+    || compareItemIds(left, right))[0];
+}
+
+export function resolveReloadMagazine({
+  items,
+  selectedId,
+  weaponFamily,
+  roundsNeeded,
+  autoSelect,
+}) {
+  const actorItems = Array.from(items ?? []);
+  const selected = selectedId
+    ? actorItems.find((item) => item?.id === selectedId)
+    : null;
+  if (
+    selected
+    && isCountBasedMagazine(selected)
+    && resolveMagazineFamily(selected) === normalizeFamilyKey(weaponFamily)
+  ) {
+    return {
+      magazine: selected,
+      automaticallySelected: false,
+      invalidSelection: false,
+      reason: null,
+    };
+  }
+
+  if (!autoSelect) {
+    return {
+      magazine: null,
+      automaticallySelected: false,
+      invalidSelection: Boolean(selectedId),
+      reason: selectedId ? "invalid-selection" : "no-selection",
+    };
+  }
+
+  const magazine = selectCompatibleMagazine(
+    actorItems,
+    weaponFamily,
+    roundsNeeded,
+  );
+  return {
+    magazine,
+    automaticallySelected: true,
+    invalidSelection: Boolean(selectedId),
+    reason: magazine ? null : "no-compatible",
+  };
+}
+
+export function qualifiesForExactMagazineHandling(
+  weapon,
+  { supportedSwnr = true, exactMagazineAutomation = true } = {},
+) {
+  return Boolean(
+    supportedSwnr
+    && exactMagazineAutomation
+    && weapon?.type === "weapon"
+    && weapon.system?.ammo?.type !== "none"
+    && weapon.system?.ammo?.type !== "infinite"
+    && resolveWeaponFamily(weapon),
+  );
+}
+
 export function formatMagazineOption(item) {
   const current = Math.max(0, finiteNumber(item?.system?.uses?.value) ?? 0);
   const maximum = Math.max(0, finiteNumber(item?.system?.uses?.max) ?? 0);
@@ -247,6 +333,18 @@ function resolveLegacyBaseWeapon(value) {
 
 function readFlag(item, scope, key) {
   return item?.flags?.[scope]?.[key];
+}
+
+function magazineRounds(item) {
+  return Math.max(0, finiteNumber(item?.system?.uses?.value) ?? 0);
+}
+
+function compareItemIds(left, right) {
+  const leftId = String(left?.id ?? "");
+  const rightId = String(right?.id ?? "");
+  if (leftId < rightId) return -1;
+  if (leftId > rightId) return 1;
+  return 0;
 }
 
 function finiteNumber(value) {

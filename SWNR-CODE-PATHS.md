@@ -153,6 +153,14 @@ weapon from `this._getEmbeddedDocument(target)` and uses `this.actor`, retaining
 SWNR's actor-sheet behavior for linked actors and synthetic/unlinked token
 actors.
 
+Version 0.10.4 validates `system.ammo.current` against the actor's current
+embedded Items before each exact reload. With automatic selection enabled, an
+invalid reference is replaced by the smallest compatible magazine that can fill
+the weapon, or by the compatible magazine with the most rounds when none is
+sufficient. Item-ID ordering breaks otherwise-equal ties. The chosen ID is
+persisted before the existing exact transfer runs; a depleted magazine clears
+the reference while a retained partial magazine remains selected.
+
 SWNR's `SWNActor` and `SWNItem` document classes do not override Foundry's
 embedded update or delete APIs. The module updates the embedded weapon and
 selected magazine together through `actor.updateEmbeddedDocuments()`. A

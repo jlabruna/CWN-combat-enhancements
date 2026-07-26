@@ -5,12 +5,16 @@ import {
   FAMILY_EDITING_MODES,
   MODULE_ID,
   MagazineReloadError,
+  calculateRoundsNeeded,
   calculateMagazineTransfer,
   canEditWeaponFamily,
   compatibleMagazines,
+  qualifiesForExactMagazineHandling,
   readWeaponFamilyChange,
   resolveMagazineFamily,
+  resolveReloadMagazine,
   resolveWeaponFamily,
+  selectCompatibleMagazine,
   transferMagazineRounds,
 } from "../scripts/weapon-family.mjs";
 
@@ -208,6 +212,203 @@ test("multiple partial magazines remain separate candidates", () => {
     compatibleMagazines([first, second], "combat-rifle").map((item) => item.id),
     ["first", "second"],
   );
+});
+
+test("a valid current selection remains selected", () => {
+  const current = magazine({ id: "current", current: 5 });
+  const larger = magazine({ id: "larger", current: 30 });
+  const result = resolveReloadMagazine({
+    items: [current, larger],
+    selectedId: current.id,
+    weaponFamily: "combat-rifle",
+    roundsNeeded: 20,
+    autoSelect: true,
+  });
+  assert.equal(result.magazine, current);
+  assert.equal(result.automaticallySelected, false);
+});
+
+test("stale, empty, and wrong-family selections are replaced", () => {
+  const replacement = magazine({ id: "replacement", current: 12 });
+  const empty = magazine({ id: "empty", current: 0 });
+  const wrong = magazine({
+    id: "wrong",
+    family: "heavy-pistol",
+    current: 30,
+  });
+  for (const selectedId of ["missing", empty.id, wrong.id]) {
+    const result = resolveReloadMagazine({
+      items: [empty, wrong, replacement],
+      selectedId,
+      weaponFamily: "combat-rifle",
+      roundsNeeded: 8,
+      autoSelect: true,
+    });
+    assert.equal(result.magazine, replacement);
+    assert.equal(result.automaticallySelected, true);
+    assert.equal(result.invalidSelection, true);
+  }
+});
+
+test("one compatible magazine is selected automatically", () => {
+  const only = magazine({ id: "only", current: 5 });
+  const result = resolveReloadMagazine({
+    items: [only],
+    selectedId: "",
+    weaponFamily: "combat-rifle",
+    roundsNeeded: 8,
+    autoSelect: true,
+  });
+  assert.equal(result.magazine, only);
+  assert.equal(result.automaticallySelected, true);
+});
+
+test("the smallest sufficient magazine is selected", () => {
+  const five = magazine({ id: "five", current: 5 });
+  const twelve = magazine({ id: "twelve", current: 12 });
+  const thirty = magazine({ id: "thirty", current: 30 });
+  assert.equal(
+    selectCompatibleMagazine(
+      [thirty, five, twelve],
+      "combat-rifle",
+      8,
+    ),
+    twelve,
+  );
+});
+
+test("the largest insufficient magazine is selected", () => {
+  const five = magazine({ id: "five", current: 5 });
+  const twelve = magazine({ id: "twelve", current: 12 });
+  const eighteen = magazine({ id: "eighteen", current: 18 });
+  assert.equal(
+    selectCompatibleMagazine(
+      [five, eighteen, twelve],
+      "combat-rifle",
+      20,
+    ),
+    eighteen,
+  );
+});
+
+test("automatic selection uses deterministic Item-ID tie-breaking", () => {
+  const later = magazine({ id: "z-item", current: 12 });
+  const earlier = magazine({ id: "a-item", current: 12 });
+  assert.equal(
+    selectCompatibleMagazine(
+      [later, earlier],
+      "combat-rifle",
+      8,
+    ),
+    earlier,
+  );
+  assert.equal(
+    selectCompatibleMagazine(
+      [later, earlier],
+      "combat-rifle",
+      20,
+    ),
+    earlier,
+  );
+});
+
+test("no compatible magazine returns no automatic selection", () => {
+  const wrong = magazine({ family: "heavy-pistol" });
+  const result = resolveReloadMagazine({
+    items: [wrong],
+    selectedId: "",
+    weaponFamily: "combat-rifle",
+    roundsNeeded: 8,
+    autoSelect: true,
+  });
+  assert.equal(result.magazine, null);
+  assert.equal(result.automaticallySelected, true);
+  assert.equal(result.reason, "no-compatible");
+});
+
+test("disabled automatic selection preserves manual-selection behavior", () => {
+  const available = magazine({ id: "available" });
+  const missing = resolveReloadMagazine({
+    items: [available],
+    selectedId: "",
+    weaponFamily: "combat-rifle",
+    roundsNeeded: 8,
+    autoSelect: false,
+  });
+  assert.equal(missing.magazine, null);
+  assert.equal(missing.automaticallySelected, false);
+  assert.equal(missing.reason, "no-selection");
+
+  const selected = resolveReloadMagazine({
+    items: [available],
+    selectedId: available.id,
+    weaponFamily: "combat-rifle",
+    roundsNeeded: 8,
+    autoSelect: false,
+  });
+  assert.equal(selected.magazine, available);
+  assert.equal(selected.automaticallySelected, false);
+});
+
+test("a depleted auto-selected magazine is deleted and its reference clears", async () => {
+  const w = weapon({ current: 22 });
+  const m = magazine({ id: "auto", current: 8 });
+  const actor = new MockActor([w, m]);
+  const selection = resolveReloadMagazine({
+    items: actor.items.values(),
+    selectedId: "",
+    weaponFamily: "combat-rifle",
+    roundsNeeded: calculateRoundsNeeded(w),
+    autoSelect: true,
+  });
+  w.system.ammo.current = selection.magazine.id;
+
+  await transferMagazineRounds({ actor, weapon: w, magazine: selection.magazine });
+  assert.equal(w.system.ammo.current, "");
+  assert.equal(actor.items.has(m.id), false);
+  assert.deepEqual(actor.deleted, [m.id]);
+});
+
+test("a partial auto-selected magazine remains selected", async () => {
+  const w = weapon({ current: 22 });
+  const m = magazine({ id: "auto", current: 12 });
+  const actor = new MockActor([w, m]);
+  const selection = resolveReloadMagazine({
+    items: actor.items.values(),
+    selectedId: "",
+    weaponFamily: "combat-rifle",
+    roundsNeeded: calculateRoundsNeeded(w),
+    autoSelect: true,
+  });
+  w.system.ammo.current = selection.magazine.id;
+
+  await transferMagazineRounds({ actor, weapon: w, magazine: selection.magazine });
+  assert.equal(w.system.ammo.current, m.id);
+  assert.equal(m.system.uses.value, 4);
+  assert.deepEqual(actor.deleted, []);
+});
+
+test("native fallback qualification remains unchanged", () => {
+  const familyAware = weapon();
+  assert.equal(qualifiesForExactMagazineHandling(familyAware), true);
+  assert.equal(
+    qualifiesForExactMagazineHandling(familyAware, {
+      exactMagazineAutomation: false,
+    }),
+    false,
+  );
+  assert.equal(
+    qualifiesForExactMagazineHandling(weapon({ family: null })),
+    false,
+  );
+
+  const infinite = weapon();
+  infinite.system.ammo.type = "infinite";
+  assert.equal(qualifiesForExactMagazineHandling(infinite), false);
+
+  const none = weapon();
+  none.system.ammo.type = "none";
+  assert.equal(qualifiesForExactMagazineHandling(none), false);
 });
 
 test("a 30-round magazine transfers only 30 into a 60-round weapon", async () => {
