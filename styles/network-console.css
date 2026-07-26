@@ -283,6 +283,10 @@
   overflow: visible;
 }
 
+.cwnce-graph-edges:not([data-geometry-ready="true"]) {
+  visibility: hidden;
+}
+
 .cwnce-graph-edges line {
   stroke: var(--cwnce-net-cyan);
   stroke-width: 3;

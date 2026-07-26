@@ -1,3 +1,5 @@
+import { calculateConnectionGeometry } from "./network-geometry.mjs";
+
 const MODULE_ID = "cwn-combat-enhancements";
 const SOCKET_NAME = `module.${MODULE_ID}`;
 const NETWORK_FLAG = "network";
@@ -590,7 +592,6 @@ function buildGraph(network, showHidden) {
   const width = Math.max(920, 210 + maxLevel * 235);
   const height = Math.max(500, 140 + maxRows * 145);
   const positioned = [];
-  const positionById = new Map();
 
   for (const [level, group] of grouped.entries()) {
     const gap = height / (group.length + 1);
@@ -599,21 +600,12 @@ function buildGraph(network, showHidden) {
       const y = Math.round(gap * (index + 1) - 55);
       const decorated = decorateNode(node, x, y);
       positioned.push(decorated);
-      positionById.set(node.id, { x: x + 90, y: y + 55 });
     });
   }
 
   const decoratedConnections = connections.map((connection) => {
-    const source = positionById.get(connection.source);
-    const target = positionById.get(connection.target);
     return {
       ...connection,
-      x1: source.x,
-      y1: source.y,
-      x2: target.x,
-      y2: target.y,
-      barrierX: Math.round((source.x + target.x) / 2),
-      barrierY: Math.round((source.y + target.y) / 2),
       cssClass: [
         connection.revealed ? "is-revealed" : "is-hidden",
         connection.barrier ? "has-barrier" : "",
@@ -723,6 +715,9 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
   foundry.applications.api.ApplicationV2,
 ) {
   selectedNodeId = null;
+  connectionGeometryFrame = null;
+  connectionResizeObserver = null;
+  connectionEventController = null;
 
   static DEFAULT_OPTIONS = {
     id: "cwnce-network-console",
@@ -825,6 +820,7 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
 
   _onRender(context, options) {
     super._onRender(context, options);
+    this._watchConnectionGeometry();
     const select = this.element.querySelector("[data-network-select]");
     select?.addEventListener("change", async (event) => {
       if (!game.user.isGM) return;
@@ -835,7 +831,106 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
     });
   }
 
+  _watchConnectionGeometry() {
+    if (this.connectionGeometryFrame !== null) {
+      cancelAnimationFrame(this.connectionGeometryFrame);
+      this.connectionGeometryFrame = null;
+    }
+    this.connectionResizeObserver?.disconnect();
+    this.connectionResizeObserver = null;
+    this.connectionEventController?.abort();
+    this.connectionEventController = new AbortController();
+
+    const graph = this.element.querySelector(".cwnce-graph");
+    const graphScroll = this.element.querySelector(".cwnce-graph-scroll");
+    const svg = graph?.querySelector(".cwnce-graph-edges");
+    if (!graph || !svg) return;
+
+    const schedule = () => this._scheduleConnectionGeometry();
+    graphScroll?.addEventListener("scroll", schedule, {
+      passive: true,
+      signal: this.connectionEventController.signal,
+    });
+    window.addEventListener("resize", schedule, {
+      passive: true,
+      signal: this.connectionEventController.signal,
+    });
+
+    if (typeof ResizeObserver === "function") {
+      this.connectionResizeObserver = new ResizeObserver(schedule);
+      this.connectionResizeObserver.observe(graph);
+      this.connectionResizeObserver.observe(svg);
+      for (const node of graph.querySelectorAll(".cwnce-graph-node")) {
+        this.connectionResizeObserver.observe(node);
+      }
+    }
+
+    this._scheduleConnectionGeometry();
+  }
+
+  _scheduleConnectionGeometry() {
+    if (this.connectionGeometryFrame !== null) {
+      cancelAnimationFrame(this.connectionGeometryFrame);
+    }
+    this.connectionGeometryFrame = requestAnimationFrame(() => {
+      this.connectionGeometryFrame = null;
+      this._refreshConnectionGeometry();
+    });
+  }
+
+  _refreshConnectionGeometry() {
+    const graph = this.element.querySelector(".cwnce-graph");
+    const svg = graph?.querySelector(".cwnce-graph-edges");
+    if (!graph || !svg) return;
+
+    const svgRect = svg.getBoundingClientRect();
+    const viewBox = svg.viewBox?.baseVal;
+    const nodes = new Map(
+      Array.from(graph.querySelectorAll(".cwnce-graph-node"), (node) => [
+        node.dataset.nodeId,
+        node,
+      ]),
+    );
+
+    for (const line of svg.querySelectorAll("line[data-connection-id]")) {
+      const sourceNode = nodes.get(line.dataset.sourceId);
+      const targetNode = nodes.get(line.dataset.targetId);
+      if (!sourceNode || !targetNode) continue;
+
+      const geometry = calculateConnectionGeometry(
+        sourceNode.getBoundingClientRect(),
+        targetNode.getBoundingClientRect(),
+        svgRect,
+        viewBox,
+      );
+      if (!geometry) continue;
+
+      line.setAttribute("x1", geometry.x1.toFixed(2));
+      line.setAttribute("y1", geometry.y1.toFixed(2));
+      line.setAttribute("x2", geometry.x2.toFixed(2));
+      line.setAttribute("y2", geometry.y2.toFixed(2));
+
+      const barrier = svg.querySelector(
+        `.barrier-marker[data-connection-id="${line.dataset.connectionId}"]`,
+      );
+      barrier?.setAttribute(
+        "transform",
+        `translate(${geometry.barrierX.toFixed(2)} ${geometry.barrierY.toFixed(2)})`,
+      );
+    }
+
+    svg.dataset.geometryReady = "true";
+  }
+
   async _onClose(options) {
+    if (this.connectionGeometryFrame !== null) {
+      cancelAnimationFrame(this.connectionGeometryFrame);
+      this.connectionGeometryFrame = null;
+    }
+    this.connectionResizeObserver?.disconnect();
+    this.connectionResizeObserver = null;
+    this.connectionEventController?.abort();
+    this.connectionEventController = null;
     networkConsoleApp = null;
     return super._onClose(options);
   }

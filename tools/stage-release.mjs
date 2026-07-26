@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 const moduleRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const releaseRoot = path.join(moduleRoot, "release");
 const stageRoot = path.join(releaseRoot, "cwn-combat-enhancements");
-const browserUploadRoot = path.join(releaseRoot, "github-upload-v0.10.4");
+const browserUploadRoot = path.join(releaseRoot, "github-upload-v0.10.5");
 const files = [
   "CHANGELOG.md",
   "LICENSE",
@@ -31,8 +31,8 @@ for (const directory of directories) {
 const manifest = JSON.parse(
   await fs.readFile(path.join(stageRoot, "module.json"), "utf8"),
 );
-if (manifest.version !== "0.10.4") {
-  throw new Error(`Expected module version 0.10.4 but found ${manifest.version}.`);
+if (manifest.version !== "0.10.5") {
+  throw new Error(`Expected module version 0.10.5 but found ${manifest.version}.`);
 }
 if (
   !manifest.download.endsWith(
@@ -50,7 +50,16 @@ for (const stylesheet of manifest.styles ?? []) {
 await fs.copyFile(path.join(stageRoot, "module.json"), path.join(releaseRoot, "module.json"));
 
 await fs.rm(browserUploadRoot, { recursive: true, force: true });
-for (const directory of ["lang", "scripts", "tests", "tools"]) {
+for (const directory of [
+  "lang",
+  "scripts",
+  "scripts/network-console",
+  "styles",
+  "templates",
+  "templates/network-console",
+  "tests",
+  "tools",
+]) {
   await fs.mkdir(path.join(browserUploadRoot, directory), { recursive: true });
 }
 for (const filename of [
@@ -78,10 +87,29 @@ for (const filename of ["magazine-reload.mjs", "weapon-family.mjs"]) {
     path.join(browserUploadRoot, "scripts", filename),
   );
 }
+for (const filename of ["network-console.mjs", "network-geometry.mjs"]) {
+  await fs.copyFile(
+    path.join(moduleRoot, "scripts", "network-console", filename),
+    path.join(browserUploadRoot, "scripts", "network-console", filename),
+  );
+}
 await fs.copyFile(
-  path.join(moduleRoot, "tests", "weapon-family.test.mjs"),
-  path.join(browserUploadRoot, "tests", "weapon-family.test.mjs"),
+  path.join(moduleRoot, "styles", "network-console.css"),
+  path.join(browserUploadRoot, "styles", "network-console.css"),
 );
+await fs.copyFile(
+  path.join(moduleRoot, "templates", "network-console", "console.hbs"),
+  path.join(browserUploadRoot, "templates", "network-console", "console.hbs"),
+);
+for (const filename of [
+  "network-geometry.test.mjs",
+  "weapon-family.test.mjs",
+]) {
+  await fs.copyFile(
+    path.join(moduleRoot, "tests", filename),
+    path.join(browserUploadRoot, "tests", filename),
+  );
+}
 await fs.copyFile(
   path.join(moduleRoot, "tools", "stage-release.mjs"),
   path.join(browserUploadRoot, "tools", "stage-release.mjs"),

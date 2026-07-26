@@ -1,11 +1,47 @@
 # Foundry VTT v13 / SWNR 2.3.x manual test checklist
 
-Use a disposable world with CWN Combat Enhancements 0.10.4 enabled. Test with
+Use a disposable world with CWN Combat Enhancements 0.10.5 enabled. Test with
 actor-owned weapon and magazine Items. Give each magazine
 `type: "item"`, `system.uses.consumable: "count"`, positive
 `system.uses.value/max`, and a Magazine Family flag.
 
 Do not claim runtime success until these checks have been completed in Foundry.
+
+## Network Console connection geometry
+
+Create a disposable network containing at least six nodes. Include branched,
+shared-source, shared-target and crossing connections. Test as both GM and
+player where requested.
+
+- [ ] Two nodes with one visible connection draw from the source-card edge to
+      the target-card edge.
+- [ ] Six nodes with five branched connections remain attached to the correct
+      cards.
+- [ ] A chain of at least four nodes draws every link correctly.
+- [ ] Multiple connections sharing one source remain attached to that source.
+- [ ] Multiple connections sharing one target remain attached to that target.
+- [ ] Crossing connections remain attached to their own endpoints.
+- [ ] Hidden and visible connections use identical geometry; only styling
+      differs.
+- [ ] A one-way connection retains its arrow at the target end.
+- [ ] An unlocked Barrier marker remains at the connection midpoint.
+- [ ] A locked Barrier marker remains at the connection midpoint.
+- [ ] Editing a node and rerendering leaves its connections attached.
+- [ ] Hiding and revealing a node redraws the remaining/revealed graph
+      correctly.
+- [ ] Hiding and revealing a connection preserves its endpoints.
+- [ ] Adding and deleting a node redraws unrelated connections correctly.
+- [ ] Adding and deleting a connection redraws the graph correctly.
+- [ ] Resizing the application narrower and wider preserves every endpoint.
+- [ ] Resizing the application taller and shorter preserves every endpoint.
+- [ ] Horizontal and vertical graph scrolling does not detach lines, arrows or
+      Barrier markers.
+- [ ] Closing and reopening the console preserves correct geometry.
+- [ ] Refreshing the world and reopening the console preserves correct
+      geometry.
+- [ ] GM and player projections draw matching geometry for the same revealed
+      graph.
+- [ ] No relevant red console errors appear during the tests.
 
 ## Reload calculations and selection
 

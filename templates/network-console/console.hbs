@@ -174,9 +174,22 @@
                     </marker>
                   </defs>
                   {{#each graph.connections}}
-                    <line class="{{cssClass}}" x1="{{x1}}" y1="{{y1}}" x2="{{x2}}" y2="{{y2}}"></line>
+                    <line
+                      class="{{cssClass}}"
+                      data-connection-id="{{id}}"
+                      data-source-id="{{source}}"
+                      data-target-id="{{target}}"
+                      x1="0"
+                      y1="0"
+                      x2="0"
+                      y2="0"
+                    ></line>
                     {{#if barrier}}
-                      <g class="barrier-marker {{#if barrierLocked}}is-locked{{/if}}" transform="translate({{barrierX}} {{barrierY}})">
+                      <g
+                        class="barrier-marker {{#if barrierLocked}}is-locked{{/if}}"
+                        data-connection-id="{{id}}"
+                        transform="translate(0 0)"
+                      >
                         <circle r="13"></circle>
                         <text text-anchor="middle" dominant-baseline="central">{{#if barrierLocked}}X{{else}}B{{/if}}</text>
                       </g>

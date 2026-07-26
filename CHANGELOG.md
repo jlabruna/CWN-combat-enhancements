@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.10.5
+
+- Fixed Network Console connections rendering away from their source and target
+  node cards when the graph canvas was resized or expanded by CSS.
+- Connection endpoints are now measured from the rendered node-card edges and
+  converted into the SVG layer's own coordinate system after layout.
+- Connection geometry now refreshes after rerenders, graph or node resizing,
+  application/window resizing, and graph scrolling.
+- Preserved hidden-connection styling, one-way arrows, barrier markers, graph
+  layout, player projections, and all existing Network Console behavior.
+- Added focused coordinate-conversion and branched-graph regression tests.
+
 ## 0.10.4
 
 - Added automatic compatible-magazine selection when Reload is clicked.
