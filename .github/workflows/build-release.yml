@@ -38,6 +38,10 @@ jobs:
           cp module.json ../module.json
           test -s ../cwn-combat-enhancements-${GITHUB_REF_NAME}.zip
           test -s ../module.json
+          unzip -t ../cwn-combat-enhancements-${GITHUB_REF_NAME}.zip
+          unzip -Z1 ../cwn-combat-enhancements-${GITHUB_REF_NAME}.zip | grep -qx "module.json"
+          unzip -Z1 ../cwn-combat-enhancements-${GITHUB_REF_NAME}.zip | grep -qx "scripts/network-console/network-model.mjs"
+          unzip -Z1 ../cwn-combat-enhancements-${GITHUB_REF_NAME}.zip | grep -qx "templates/network-console/console.hbs"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
