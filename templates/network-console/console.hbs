@@ -23,13 +23,9 @@
               {{/each}}
             </select>
           </label>
-          <button type="button" data-action="createNetwork">
-            <i class="fa-solid fa-plus"></i> Create Network
-          </button>
+          <button type="button" data-action="createNetwork"><i class="fa-solid fa-plus"></i> Create Network</button>
           {{#if hasNetwork}}
-            <button type="button" class="danger" data-action="deleteNetwork">
-              <i class="fa-solid fa-trash"></i> Delete
-            </button>
+            <button type="button" class="danger" data-action="deleteNetwork"><i class="fa-solid fa-trash"></i> Delete</button>
           {{/if}}
         </header>
       {{/if}}
@@ -39,10 +35,8 @@
           <i class="fa-solid fa-network-wired"></i>
           {{#if isGM}}
             <h2>No Networks Yet</h2>
-            <p>Create a network, then add its first device node.</p>
-            <button type="button" data-action="createNetwork">
-              <i class="fa-solid fa-plus"></i> Create Network
-            </button>
+            <p>Create a network, then drag its first node onto the canvas.</p>
+            <button type="button" data-action="createNetwork"><i class="fa-solid fa-plus"></i> Create Network</button>
           {{else}}
             <h2>No Active Network</h2>
             <p>The GM has not published a network yet.</p>
@@ -54,19 +48,10 @@
             <aside class="cwnce-network-sidebar">
               <form class="cwnce-network-details">
                 <h2><i class="fa-solid fa-server"></i> Network Architecture</h2>
-                <label>
-                  Name
-                  <input type="text" name="name" value="{{network.name}}">
-                </label>
-                <label>
-                  Cyberspace Idiom
-                  <input type="text" name="idiom" value="{{network.idiom}}" placeholder="Neon temple, chrome jungle...">
-                </label>
+                <label>Name<input type="text" name="name" value="{{network.name}}"></label>
+                <label>Cyberspace Idiom<input type="text" name="idiom" value="{{network.idiom}}" placeholder="Neon temple, chrome jungle..."></label>
                 <div class="form-row">
-                  <label>
-                    Security Difficulty
-                    <input type="number" name="securityDifficulty" value="{{network.securityDifficulty}}" min="1">
-                  </label>
+                  <label>Security Difficulty<input type="number" name="securityDifficulty" value="{{network.securityDifficulty}}" min="1"></label>
                   <label>
                     Primary Server
                     <select name="serverClass">
@@ -87,9 +72,7 @@
                     <option value="2" {{#if (eq network.alertProgress 2)}}selected{{/if}}>ALERTED</option>
                   </select>
                 </label>
-                <button type="button" data-action="saveNetwork">
-                  <i class="fa-solid fa-floppy-disk"></i> Save Details
-                </button>
+                <button type="button" data-action="saveNetwork"><i class="fa-solid fa-floppy-disk"></i> Save Details</button>
               </form>
 
               <div class="cwnce-network-limits">
@@ -98,57 +81,65 @@
                 <span>Demons: {{serverLimits.demons}}</span>
               </div>
 
-              <section class="cwnce-editor-section">
-                <div class="section-heading">
-                  <h3>Nodes</h3>
-                  <button type="button" data-action="addNode"><i class="fa-solid fa-plus"></i></button>
+              <details class="cwnce-editor-section cwnce-palette-section" open>
+                <summary>Node Palette</summary>
+                <div class="cwnce-node-palette">
+                  {{#each nodePalette}}
+                    <button
+                      type="button"
+                      draggable="true"
+                      data-palette-node-type="{{id}}"
+                      title="Drag {{label}} onto the canvas"
+                      aria-label="Drag {{label}} onto the canvas"
+                    >
+                      <i class="{{icon}}"></i><span>{{label}}</span>
+                    </button>
+                  {{/each}}
+                </div>
+              </details>
+
+              <details class="cwnce-editor-section">
+                <summary>Nodes <span>{{nodeCount}}</span></summary>
+                <div class="section-actions">
+                  <button type="button" data-action="addNode" title="Add through dialog"><i class="fa-solid fa-plus"></i> Dialog</button>
                 </div>
                 <div class="editor-list">
                   {{#each nodeList}}
                     <article class="editor-entry {{cssClass}}">
                       <button type="button" class="entry-main" data-action="selectNode" data-node-id="{{id}}">
-                        <i class="{{icon}}"></i>
-                        <span>{{name}}</span>
+                        <i class="{{icon}}"></i><span>{{name}}</span>
                       </button>
                       <button type="button" data-action="toggleNodeReveal" data-node-id="{{id}}" title="Reveal or hide">
                         <i class="fa-solid {{#if revealed}}fa-eye{{else}}fa-eye-slash{{/if}}"></i>
                       </button>
-                      <button type="button" data-action="editNode" data-node-id="{{id}}" title="Edit">
-                        <i class="fa-solid fa-pen"></i>
-                      </button>
-                      <button type="button" data-action="deleteNode" data-node-id="{{id}}" title="Delete">
-                        <i class="fa-solid fa-trash"></i>
-                      </button>
+                      <button type="button" data-action="editNode" data-node-id="{{id}}" title="Edit in dialog"><i class="fa-solid fa-pen"></i></button>
+                      <button type="button" data-action="deleteNode" data-node-id="{{id}}" title="Delete"><i class="fa-solid fa-trash"></i></button>
                     </article>
                   {{/each}}
                 </div>
-              </section>
+              </details>
 
-              <section class="cwnce-editor-section">
-                <div class="section-heading">
-                  <h3>Connections</h3>
-                  <button type="button" data-action="addConnection"><i class="fa-solid fa-plus"></i></button>
+              <details class="cwnce-editor-section">
+                <summary>Connections <span>{{connectionCount}}</span></summary>
+                <div class="section-actions">
+                  <button type="button" data-action="addConnection"><i class="fa-solid fa-plus"></i> Add Connection</button>
                 </div>
                 <div class="editor-list">
                   {{#each connectionList}}
                     <article class="editor-entry {{#if revealed}}is-revealed{{else}}is-hidden{{/if}}">
-                      <span class="entry-label">
-                        {{label}}
+                      <button type="button" class="entry-main" data-action="selectConnection" data-connection-id="{{id}}">
+                        <span>{{label}}</span>
                         {{#if barrier}}<i class="fa-solid {{#if barrierLocked}}fa-lock{{else}}fa-lock-open{{/if}}"></i>{{/if}}
-                      </span>
+                      </button>
                       <button type="button" data-action="toggleConnectionReveal" data-connection-id="{{id}}" title="Reveal or hide">
                         <i class="fa-solid {{#if revealed}}fa-eye{{else}}fa-eye-slash{{/if}}"></i>
                       </button>
-                      <button type="button" data-action="editConnection" data-connection-id="{{id}}" title="Edit">
-                        <i class="fa-solid fa-pen"></i>
-                      </button>
-                      <button type="button" data-action="deleteConnection" data-connection-id="{{id}}" title="Delete">
-                        <i class="fa-solid fa-trash"></i>
-                      </button>
+                      <button type="button" data-action="editConnection" data-connection-id="{{id}}" title="Edit in dialog"><i class="fa-solid fa-pen"></i></button>
+                      <button type="button" data-action="deleteConnection" data-connection-id="{{id}}" title="Delete"><i class="fa-solid fa-trash"></i></button>
                     </article>
                   {{/each}}
                 </div>
-              </section>
+              </details>
             </aside>
           {{/if}}
 
@@ -159,6 +150,7 @@
                 {{#if network.idiom}}<p>{{network.idiom}}</p>{{/if}}
               </div>
               <div class="network-badges">
+                {{#if isGM}}<button type="button" data-action="autoArrange" title="Replace all saved node positions"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto Arrange</button>{{/if}}
                 <span>Security {{network.securityDifficulty}}</span>
                 <span>{{network.serverClass}}</span>
                 <span class="{{#if (eq network.alertProgress 2)}}alerted{{/if}}">{{alertLabel}}</span>
@@ -167,29 +159,16 @@
 
             <div class="cwnce-graph-scroll">
               <div class="cwnce-graph" style="width:{{graph.width}}px;height:{{graph.height}}px">
-                <svg class="cwnce-graph-edges" viewBox="0 0 {{graph.width}} {{graph.height}}" aria-hidden="true">
+                <svg class="cwnce-graph-edges" viewBox="0 0 {{graph.width}} {{graph.height}}">
                   <defs>
                     <marker id="cwnce-arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto">
                       <path d="M0,0 L8,4 L0,8 Z"></path>
                     </marker>
                   </defs>
                   {{#each graph.connections}}
-                    <line
-                      class="{{cssClass}}"
-                      data-connection-id="{{id}}"
-                      data-source-id="{{source}}"
-                      data-target-id="{{target}}"
-                      x1="0"
-                      y1="0"
-                      x2="0"
-                      y2="0"
-                    ></line>
+                    <line class="{{cssClass}}" data-connection-id="{{id}}" data-source-id="{{source}}" data-target-id="{{target}}" x1="0" y1="0" x2="0" y2="0"></line>
                     {{#if barrier}}
-                      <g
-                        class="barrier-marker {{#if barrierLocked}}is-locked{{/if}}"
-                        data-connection-id="{{id}}"
-                        transform="translate(0 0)"
-                      >
+                      <g class="barrier-marker {{#if barrierLocked}}is-locked{{/if}}" data-connection-id="{{id}}" transform="translate(0 0)">
                         <circle r="13"></circle>
                         <text text-anchor="middle" dominant-baseline="central">{{#if barrierLocked}}X{{else}}B{{/if}}</text>
                       </g>
@@ -198,83 +177,122 @@
                 </svg>
 
                 {{#each graph.nodes}}
-                  <button
-                    type="button"
-                    class="cwnce-graph-node {{cssClass}}"
-                    style="{{positionStyle}}"
-                    data-action="selectNode"
-                    data-node-id="{{id}}"
-                  >
+                  <button type="button" class="cwnce-graph-node {{cssClass}}" style="{{positionStyle}}" data-action="selectNode" data-node-id="{{id}}">
                     <i class="{{icon}}"></i>
                     <strong>{{name}}</strong>
                     <small>{{typeLabel}}</small>
-                    <span>{{stateLabel}}</span>
+                    <span class="node-state">{{stateLabel}}</span>
+                    {{#if visibleDatafileCount}}<span class="node-badge" title="Revealed datafiles"><i class="fa-solid fa-file-code"></i> {{visibleDatafileCount}}</span>{{/if}}
+                    {{#each demons}}
+                      <span class="cwnce-node-demon {{#unless revealed}}is-hidden{{/unless}} {{#if isFragged}}is-fragged{{/if}}">
+                        <i class="fa-solid fa-ghost"></i> {{name}}
+                      </span>
+                    {{/each}}
                   </button>
                 {{/each}}
 
                 {{#unless graph.nodes.length}}
-                  <div class="graph-empty">
-                    {{#if isGM}}Add a node to begin mapping this network.{{else}}No nodes have been revealed.{{/if}}
-                  </div>
+                  <div class="graph-empty">{{#if isGM}}Drag a node from the palette to begin mapping this network.{{else}}No nodes have been revealed.{{/if}}</div>
                 {{/unless}}
               </div>
             </div>
           </main>
 
           <aside class="cwnce-node-inspector">
-            {{#if selectedNode}}
-              <header>
-                <i class="{{selectedNode.icon}}"></i>
-                <div>
-                  <h2>{{selectedNode.name}}</h2>
-                  <p>{{selectedNode.typeLabel}}</p>
-                </div>
-              </header>
-              <dl>
-                <dt>State</dt>
-                <dd>{{selectedNode.stateLabel}}</dd>
-                {{#if selectedNode.description}}
-                  <dt>Description</dt>
-                  <dd>{{selectedNode.description}}</dd>
-                {{/if}}
-                {{#if selectedNode.datafiles}}
-                  <dt>Datafiles</dt>
-                  <dd>{{selectedNode.datafiles}}</dd>
-                {{/if}}
-                {{#if selectedNode.demons}}
-                  <dt>Demons</dt>
-                  <dd>{{selectedNode.demons}}</dd>
-                {{/if}}
-                {{#if selectedNode.watchdogs}}
-                  <dt>Watchdogs</dt>
-                  <dd>{{selectedNode.watchdogs}}</dd>
-                {{/if}}
+            {{#if selectedConnection}}
+              <header><i class="fa-solid fa-link"></i><div><h2>Connection</h2><p>{{selectedConnection.label}}</p></div></header>
+              {{#if isGM}}
+                <form class="cwnce-inspector-form" data-connection-id="{{selectedConnection.id}}">
+                  <label>Source<select name="source">{{#each selectedConnection.nodeOptions}}<option value="{{id}}" {{#if sourceSelected}}selected{{/if}}>{{name}}</option>{{/each}}</select></label>
+                  <label>Target<select name="target">{{#each selectedConnection.nodeOptions}}<option value="{{id}}" {{#if targetSelected}}selected{{/if}}>{{name}}</option>{{/each}}</select></label>
+                  <label class="checkbox"><input type="checkbox" name="revealed" {{#if selectedConnection.revealed}}checked{{/if}}> Revealed</label>
+                  <label class="checkbox"><input type="checkbox" name="oneWay" {{#if selectedConnection.oneWay}}checked{{/if}}> One Way</label>
+                  <label class="checkbox"><input type="checkbox" name="barrier" {{#if selectedConnection.barrier}}checked{{/if}}> Barrier</label>
+                  <label class="checkbox"><input type="checkbox" name="barrierLocked" {{#if selectedConnection.barrierLocked}}checked{{/if}}> Barrier Locked</label>
+                  <label>Private GM Notes<textarea name="gmNotes" rows="4">{{selectedConnection.gmNotes}}</textarea></label>
+                  <button type="button" data-action="saveConnectionInspector"><i class="fa-solid fa-floppy-disk"></i> Save Connection</button>
+                  <button type="button" class="danger" data-action="deleteConnection" data-connection-id="{{selectedConnection.id}}"><i class="fa-solid fa-trash"></i> Delete Connection</button>
+                </form>
+              {{/if}}
+            {{else}}
+              {{#if selectedNode}}
+                <header><i class="{{selectedNode.icon}}"></i><div><h2>{{selectedNode.name}}</h2><p>{{selectedNode.typeLabel}}</p></div></header>
                 {{#if isGM}}
-                  {{#if selectedNode.gmNotes}}
-                    <dt>Private GM Notes</dt>
-                    <dd class="gm-notes">{{selectedNode.gmNotes}}</dd>
-                  {{/if}}
-                  <button type="button" data-action="editNode" data-node-id="{{selectedNode.id}}">
-                    <i class="fa-solid fa-pen"></i> Edit Node
-                  </button>
+                  <div class="cwnce-inspector-actions">
+                    <button type="button" data-action="toggleNodeReveal" data-node-id="{{selectedNode.id}}" title="Reveal or hide"><i class="fa-solid {{#if selectedNode.revealed}}fa-eye{{else}}fa-eye-slash{{/if}}"></i></button>
+                    <button type="button" data-action="connectSelectedNode" data-node-id="{{selectedNode.id}}" title="Connect selected node"><i class="fa-solid fa-link"></i></button>
+                    <button type="button" data-action="duplicateNode" data-node-id="{{selectedNode.id}}" title="Duplicate"><i class="fa-solid fa-clone"></i></button>
+                    <button type="button" class="danger" data-action="deleteNode" data-node-id="{{selectedNode.id}}" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                  </div>
+                  <form class="cwnce-inspector-form" data-node-id="{{selectedNode.id}}">
+                    <label>Name<input type="text" name="name" value="{{selectedNode.name}}"></label>
+                    <label>Device Type<select name="type">{{#each nodeTypeOptions}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>
+                    <label>Operational State<select name="state">{{#each nodeStateOptions}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>
+                    <label class="checkbox"><input type="checkbox" name="revealed" {{#if selectedNode.revealed}}checked{{/if}}> Revealed to players</label>
+                    <label>Description<textarea name="description" rows="3">{{selectedNode.description}}</textarea></label>
+                    <label>Private GM Notes<textarea name="gmNotes" rows="3">{{selectedNode.gmNotes}}</textarea></label>
+                    <button type="button" data-action="saveNodeInspector"><i class="fa-solid fa-floppy-disk"></i> Save Node</button>
+                  </form>
+
+                  <section class="cwnce-structured-section">
+                    <div class="section-heading"><h3>Datafiles</h3><button type="button" data-action="addDatafile" data-node-id="{{selectedNode.id}}" title="Add datafile"><i class="fa-solid fa-plus"></i></button></div>
+                    {{#each selectedNode.datafiles}}
+                      <article class="cwnce-structured-entry {{#unless revealed}}is-hidden{{/unless}}">
+                        <div><strong>{{name}}</strong><small>{{value}} credits{{#if copied}} · copied{{/if}}</small></div>
+                        <button type="button" data-action="toggleDatafileReveal" data-node-id="{{../selectedNode.id}}" data-datafile-id="{{id}}" title="Reveal or hide"><i class="fa-solid {{#if revealed}}fa-eye{{else}}fa-eye-slash{{/if}}"></i></button>
+                        <button type="button" data-action="editDatafile" data-node-id="{{../selectedNode.id}}" data-datafile-id="{{id}}" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                        <button type="button" data-action="deleteDatafile" data-node-id="{{../selectedNode.id}}" data-datafile-id="{{id}}" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                      </article>
+                    {{/each}}
+                  </section>
+
+                  <section class="cwnce-structured-section">
+                    <div class="section-heading"><h3>Demons</h3><button type="button" data-action="addDemon" data-node-id="{{selectedNode.id}}" title="Add Demon"><i class="fa-solid fa-plus"></i></button></div>
+                    {{#each selectedNode.demons}}
+                      <article class="cwnce-structured-entry demon {{#unless revealed}}is-hidden{{/unless}} {{#if isFragged}}is-fragged{{/if}}">
+                        <div><strong><i class="fa-solid fa-ghost"></i> {{name}}</strong><small>{{class}} · HP {{currentHp}}/{{maxHp}} · Skill +{{skill}} · {{lineLimit}} lines · {{cost}} credits{{#if currentVerb}} · {{currentVerb}} {{currentSubject}}{{/if}}</small></div>
+                        <button type="button" data-action="toggleDemonReveal" data-node-id="{{../selectedNode.id}}" data-demon-id="{{id}}" title="Reveal or hide"><i class="fa-solid {{#if revealed}}fa-eye{{else}}fa-eye-slash{{/if}}"></i></button>
+                        <button type="button" data-action="editDemon" data-node-id="{{../selectedNode.id}}" data-demon-id="{{id}}" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                        <button type="button" data-action="duplicateDemon" data-node-id="{{../selectedNode.id}}" data-demon-id="{{id}}" title="Duplicate"><i class="fa-solid fa-clone"></i></button>
+                        <button type="button" data-action="deleteDemon" data-node-id="{{../selectedNode.id}}" data-demon-id="{{id}}" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                      </article>
+                    {{/each}}
+                  </section>
+
+                  <section class="cwnce-structured-section">
+                    <div class="section-heading"><h3>Watchdogs</h3><button type="button" data-action="addWatchdog" data-node-id="{{selectedNode.id}}" title="Add Watchdog"><i class="fa-solid fa-plus"></i></button></div>
+                    {{#each selectedNode.watchdogs}}
+                      <article class="cwnce-structured-entry {{#unless revealed}}is-hidden{{/unless}}">
+                        <div><strong>{{name}}</strong></div>
+                        <button type="button" data-action="toggleWatchdogReveal" data-node-id="{{../selectedNode.id}}" data-watchdog-id="{{id}}" title="Reveal or hide"><i class="fa-solid {{#if revealed}}fa-eye{{else}}fa-eye-slash{{/if}}"></i></button>
+                        <button type="button" data-action="editWatchdog" data-node-id="{{../selectedNode.id}}" data-watchdog-id="{{id}}" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                        <button type="button" data-action="deleteWatchdog" data-node-id="{{../selectedNode.id}}" data-watchdog-id="{{id}}" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                      </article>
+                    {{/each}}
+                  </section>
                 {{else}}
+                  <dl>
+                    <dt>State</dt><dd>{{selectedNode.stateLabel}}</dd>
+                    {{#if selectedNode.description}}<dt>Description</dt><dd>{{selectedNode.description}}</dd>{{/if}}
+                    {{#each selectedNode.datafiles}}
+                      <dt><i class="fa-solid fa-file-code"></i> Datafile: {{name}}</dt>
+                      <dd>{{description}}<br>Value: {{value}} credits{{#if copied}} · Copied{{/if}}</dd>
+                    {{/each}}
+                    {{#each selectedNode.demons}}<dt><i class="fa-solid fa-ghost"></i> Demon</dt><dd>{{name}}</dd>{{/each}}
+                    {{#each selectedNode.watchdogs}}<dt><i class="fa-solid fa-user-secret"></i> Watchdog</dt><dd>{{name}}</dd>{{/each}}
+                  </dl>
                   <div class="cwnce-action-grid">
                     {{#each playerActions}}
                       <button type="button" data-action="requestAction" data-request-id="{{id}}">
-                        <i class="{{icon}}"></i>
-                        <span>{{label}}</span>
-                        <small>{{economy}}</small>
+                        <i class="{{icon}}"></i><span>{{label}}</span><small>{{economy}}</small>
                       </button>
                     {{/each}}
                   </div>
-                  <p class="prototype-note">Requests notify the GM. Run a Program uses Verbs and Subjects prepared on the acting hacker's linked cyberdeck. This prototype does not yet roll checks, spend Access, or consume CPU.</p>
+                  <p class="prototype-note">Requests notify the GM. Run a Program uses prepared Verbs and Subjects. This console does not roll checks, spend Access, execute programs, or change Alert automatically.</p>
                 {{/if}}
-              </dl>
-            {{else}}
-              <div class="cwnce-network-empty compact">
-                <i class="fa-solid fa-arrow-pointer"></i>
-                <p>Select a node to inspect it.</p>
-              </div>
+              {{else}}
+                <div class="cwnce-network-empty compact"><i class="fa-solid fa-arrow-pointer"></i><p>Select a node or connection to inspect it.</p></div>
+              {{/if}}
             {{/if}}
           </aside>
         </div>

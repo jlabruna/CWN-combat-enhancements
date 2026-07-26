@@ -1,5 +1,30 @@
 # Changelog
 
+## 0.11.0
+
+- Added a visual GM network editor with an eleven-type draggable node palette,
+  persistent node positions, live connection updates during dragging, and an
+  explicit Auto Arrange fallback.
+- Replaced the static inspector with compact editable node and connection
+  inspectors, including reveal, connect, duplicate, delete, source/target,
+  Barrier, one-way, and private-note controls.
+- Retained the collapsed Nodes and Connections lists and the existing dialog
+  workflows as accessibility and admin fallbacks.
+- Added structured datafiles with integer values, discovery and copied state.
+- Added the eight source-backed CWN Demon templates with exact cost, command-line
+  limit, HP, and skill values, editable encounter state and command priorities,
+  validated SWNR 2.3.0 Verb + Subject display, reveal controls, and distinct
+  fragged styling.
+- Added repeatable Watchdog entries without introducing actor automation.
+- Upgraded saved networks to schema version 2. Legacy string contents and
+  unsaved layouts are normalized and persisted idempotently in the existing
+  module Journal flag.
+- Hardened player projections so hidden nodes and entries, GM notes, Demon
+  statistics, command lines, and current programs are never published.
+- Added Network Console model tests for migration, projection sanitization,
+  positions, connection integrity, node duplication/deletion, malformed data,
+  and source-backed Demon defaults.
+
 ## 0.10.6
 
 - Fixed Network Console connection geometry shifting when the application was

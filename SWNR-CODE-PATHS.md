@@ -173,6 +173,22 @@ spends loaded rounds from `system.ammo.value`. Suppressive Fire continues to
 spend two loaded rounds through the module's existing weapon update. The
 magazine wrapper does not replace either attack path.
 
+## Network Console rules and program data
+
+The Network Console remains module-owned and stores its schema-v2 data in a
+GM-only Journal flag. Its current Verb and Subject display uses the program
+names and targets supplied by SWNR 2.3.0 under:
+
+- `src/packs/cwn-items/*` for the CWN program Items;
+- `module/data/items/item-program.mjs` for the program data model;
+- `module/sheets/cyberdeck-sheet.mjs` for prepared cyberdeck programs.
+
+The allowed Verb + Subject pair is validated against the same target categories
+used by `programsAreCompatible()` in the existing console request workflow:
+Avatar, Cyber, Data, Device, and Program. Demon class defaults come from the CWN
+SRD table rather than SWNR actor data; SWNR does not provide Demon actor stat
+blocks. Network editing does not modify the SWNR system or any SWNR compendium.
+
 ## Extension boundary
 
 Normal target checking and damage integration use Foundry chat lifecycle hooks

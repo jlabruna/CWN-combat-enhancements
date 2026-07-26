@@ -1,11 +1,53 @@
 # Foundry VTT v13 / SWNR 2.3.x manual test checklist
 
-Use a disposable world with CWN Combat Enhancements 0.10.6 enabled. Test with
+Use a disposable world with CWN Combat Enhancements 0.11.0 enabled. Test with
 actor-owned weapon and magazine Items. Give each magazine
 `type: "item"`, `system.uses.consumable: "count"`, positive
 `system.uses.value/max`, and a Magazine Family flag.
 
 Do not claim runtime success until these checks have been completed in Foundry.
+
+## Network Console v0.11 visual editor
+
+1. Drag all eleven node types from the palette onto the canvas.
+2. Confirm each node appears at its drop location and becomes selected.
+3. Confirm the right inspector immediately shows the new node.
+4. Select a node, then drop another palette node; confirm one connection is
+   created from the selected node.
+5. Drag an existing node and confirm its connection lines follow live.
+6. Click a node without dragging and confirm it is selected.
+7. Rerender, press Ctrl+F5, and restart the world; confirm positions persist.
+8. Resize the application in both directions; confirm node positions and
+   connection endpoints remain aligned.
+9. Click **Auto Arrange** and confirm the saved layout is replaced sensibly.
+10. Expand **Nodes** and select a hidden or off-screen node.
+11. Expand **Connections** and select a connection.
+12. Try to connect an already-connected pair; confirm the duplicate is refused.
+13. Use the node eye, connect, duplicate, and delete quick actions.
+14. Confirm deleting a node removes all connections touching it.
+15. Edit and save node name, type, state, reveal, description, and GM notes.
+16. Edit and save connection source, target, reveal, one-way, Barrier, lock, and
+    GM notes; confirm geometry changes immediately.
+17. Add multiple datafiles and verify name, description, integer value, reveal,
+    copied status, and private notes persist.
+18. With a player console open, confirm hidden datafiles are absent and revealed
+    datafiles show only player-safe fields.
+19. Add each Demon class and verify its defaults against the CWN table.
+20. Change Demon current HP, state, skill, Verb, Subject, commands, and notes.
+21. Set a Demon to 0 HP and confirm it is visibly Fragged.
+22. Add and duplicate multiple Demons on one node.
+23. Toggle each Demon eye and confirm its name/icon appears or disappears live
+    on the player node card without exposing statistics or commands.
+24. Add, edit, reveal, and delete multiple Watchdogs.
+25. Open a network saved before v0.11.0 and confirm its old strings remain as
+    hidden legacy entries and its generated node positions persist.
+26. As a player, confirm nodes cannot be dragged and no editor controls appear.
+27. Run the existing prepared Verb + Subject request and confirm validation and
+    the GM socket notification still work.
+28. Confirm no private notes or hidden structured fields appear in the published
+    projection or player console.
+29. Complete the connection geometry checks below.
+30. Open the browser console and confirm no relevant red errors were produced.
 
 ## Network Console connection geometry
 

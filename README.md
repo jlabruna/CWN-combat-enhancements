@@ -63,7 +63,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.10.6.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.11.0.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -145,23 +145,42 @@ magazine automation disabled use SWNR's native ammunition source selection and
 reload logic. GMs can still find **Native Ammo Type** under **Advanced SWNR
 Compatibility** on the weapon sheet.
 
-## Experimental Network Console
+## Visual Network Console
 
 Enable **Experimental Network Console** under **Configure Settings > CWN Combat
 Enhancements**, then reload the world. Open it from the network icon in the
 Token controls or from the module's settings submenu.
 
-The v0.8.0 prototype follows CWN's network vocabulary:
+Version 0.11.0 turns the GM console into a visual network editor while retaining
+the existing Journal storage, player projection, sockets, and program-request
+validation:
 
-- networks contain device **nodes** joined by **connections**;
-- **Barriers** protect connections rather than acting as nodes;
-- Demons and watchdogs occupy nodes, and datafiles are node contents;
-- networks record their Security difficulty and primary server class;
-- connections and nodes can be hidden until the GM reveals them.
+- drag any of the eleven supported node types from the palette to the canvas;
+- drag existing nodes with live connection geometry and persistent positions;
+- use **Auto Arrange** when a saved layout needs to be rebuilt;
+- select nodes or connections to edit them in the contextual inspector;
+- add structured datafiles, source-backed CWN Demons, and Watchdogs to nodes;
+- reveal each node, connection, datafile, Demon, or Watchdog independently.
 
-The full network is kept in a GM-only Journal Entry. Players receive a sanitized
-projection containing only revealed nodes, revealed connections, and
-player-facing details. Private GM notes are never included in that projection.
+Dropping a palette node while another node is selected creates one default
+connection between them. The compact Nodes and Connections lists remain as
+collapsed keyboard/admin fallbacks, and the original Add Connection dialog is
+still available.
+
+The Demon selector uses the CWN table exactly: Tripwire, Mastiff, Siren,
+Cataphract, Ogre, Headsman, Hydra, and Nemesis. It stores the class's command
+line limit, HP, skill bonus, and cost, plus editable encounter state, prioritized
+commands, and a display-only current Verb + Subject. Zero HP is shown as
+**Fragged**. This console does not execute Demon programs or run a reboot timer.
+
+The schema is version 2. Old string datafiles, Demons, and Watchdogs are
+preserved as hidden structured legacy entries, and old nodes receive one
+persisted automatic layout. Migration only updates the module's network flag.
+The full network remains in a GM-only Journal Entry. Players receive a sanitized
+projection containing only revealed nodes, connections, entity names and
+player-safe datafile fields. Positions are included only for revealed nodes.
+Private notes, Demon HP, skill, commands, and current programs are never
+published.
 
 Players can select a revealed node and send CWN-labelled requests to the GM,
 including **Jack In**, **Move Nodes**, **Look for Hidden Connections**, **Run a
@@ -180,7 +199,8 @@ prototype does not yet:
 - roll Program checks or resolve defensive programs;
 - spend Access or CPU;
 - automate Alert the Network;
-- limit a published network to a designated player.
+- execute Demon or Watchdog actions;
+- enforce server limits or limit a published network to a designated player.
 
 The saved network schema already reserves an authorization list so
 designated-player sharing can be added without redesigning saved networks.
@@ -202,7 +222,7 @@ designated-player sharing can be added without redesigning saved networks.
   weapon template or `SWNActorSheet.DEFAULT_OPTIONS.actions.reload`, the module
   logs a compatibility warning and leaves the affected integration unpatched.
 - Physical magazine Items are expected to be supplied by a content module or
-  created by the user. Version 0.10.6 does not create or migrate weapons or
+  created by the user. Version 0.11.0 does not create or migrate weapons or
   magazines.
 
 ## Suppressive Fire workflow
@@ -244,6 +264,21 @@ target for manual resolution and does not apply damage automatically.
   buttons remain available for GM corrections or exceptional rules.
 
 ## Changes
+
+### 0.11.0
+
+- Redesigned the GM Network Console around a draggable node palette, persistent
+  canvas positions, live connection updates, and contextual node/connection
+  inspectors.
+- Added guarded automatic connections for palette drops, duplicate connection
+  prevention, node duplication, safe deletion, and explicit Auto Arrange.
+- Added structured datafiles, source-backed CWN Demon templates and encounter
+  bookkeeping, structured Watchdogs, per-entry reveal controls, and player-safe
+  node-card displays.
+- Migrated legacy Network Console data to schema version 2 without rewriting
+  unrelated Journal content.
+- Added pure schema, migration, projection, graph-integrity, and rules-data
+  tests while preserving the v0.10.6 resize-safe connection renderer.
 
 ### 0.10.6
 

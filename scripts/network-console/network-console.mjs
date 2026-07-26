@@ -2,6 +2,23 @@ import {
   calculateConnectionGeometry,
   svgPixelViewBox,
 } from "./network-geometry.mjs";
+import {
+  autoArrangePositions,
+  clampPosition,
+  connectionExists,
+  createDemonFromTemplate,
+  createNode,
+  CWN_DEMON_TEMPLATES,
+  CWN_PROGRAM_SUBJECTS,
+  CWN_PROGRAM_VERBS,
+  DEFAULT_CANVAS,
+  deleteNodeAndConnections,
+  duplicateNode,
+  NETWORK_SCHEMA_VERSION,
+  normalizeNetwork,
+  programsAreRulesCompatible,
+  sanitizeNetworkForPlayers,
+} from "./network-model.mjs";
 
 const MODULE_ID = "cwn-combat-enhancements";
 const SOCKET_NAME = `module.${MODULE_ID}`;
@@ -102,7 +119,7 @@ Hooks.once("ready", () => {
   exposeNetworkApi();
 
   if (game.user.isGM) {
-    void ensurePublishedProjection();
+    void migrateNetworkDocuments().then(() => ensurePublishedProjection());
   } else {
     game.socket.emit(SOCKET_NAME, {
       type: "projectionRequest",
@@ -195,13 +212,18 @@ function getActiveNetworkDocument() {
   return listNetworkDocuments().find((journal) => journal.id === activeId) ?? null;
 }
 
-function getNetworkData(journal) {
+function getRawNetworkData(journal) {
   return foundry.utils.deepClone(journal?.getFlag(MODULE_ID, NETWORK_FLAG) ?? null);
+}
+
+function getNetworkData(journal) {
+  const raw = getRawNetworkData(journal);
+  return raw ? normalizeNetwork(raw) : null;
 }
 
 function createNetworkData(name) {
   return {
-    schemaVersion: 1,
+    schemaVersion: NETWORK_SCHEMA_VERSION,
     id: foundry.utils.randomID(),
     name,
     idiom: "",
@@ -236,6 +258,7 @@ async function ensureNetworkFolder() {
 
 async function saveNetwork(journal, network) {
   if (!game.user.isGM || !journal || !network) return;
+  network = normalizeNetwork(network);
   network.name = String(network.name || journal.name || "Untitled Network").trim();
   await journal.update({
     name: `[Network] ${network.name}`,
@@ -244,53 +267,21 @@ async function saveNetwork(journal, network) {
   await publishNetworkProjection(journal, network);
 }
 
+async function migrateNetworkDocuments() {
+  if (!game.user.isGM) return;
+  for (const journal of listNetworkDocuments()) {
+    const raw = getRawNetworkData(journal);
+    if (!raw) continue;
+    const migrated = normalizeNetwork(raw);
+    if (JSON.stringify(raw) === JSON.stringify(migrated)) continue;
+    await journal.update({
+      [`flags.${MODULE_ID}.${NETWORK_FLAG}`]: migrated,
+    });
+  }
+}
+
 function sanitizeNetwork(network) {
-  if (!network) return null;
-
-  const nodes = network.nodes
-    .filter((node) => node.revealed)
-    .map((node) => ({
-      id: node.id,
-      name: node.name,
-      type: node.type,
-      state: node.state,
-      description: node.description,
-      datafiles: node.datafiles,
-      demons: node.demons,
-      watchdogs: node.watchdogs,
-      revealed: true,
-    }));
-  const visibleIds = new Set(nodes.map((node) => node.id));
-
-  const connections = network.connections
-    .filter(
-      (connection) =>
-        connection.revealed &&
-        visibleIds.has(connection.source) &&
-        visibleIds.has(connection.target),
-    )
-    .map((connection) => ({
-      id: connection.id,
-      source: connection.source,
-      target: connection.target,
-      barrier: connection.barrier,
-      barrierLocked: connection.barrierLocked,
-      oneWay: connection.oneWay,
-      revealed: true,
-    }));
-
-  return {
-    schemaVersion: network.schemaVersion ?? 1,
-    id: network.id,
-    name: network.name,
-    idiom: network.idiom,
-    securityDifficulty: network.securityDifficulty,
-    serverClass: network.serverClass,
-    alertProgress: network.alertProgress,
-    authorizedUserIds: network.authorizedUserIds ?? [],
-    nodes,
-    connections,
-  };
+  return network ? sanitizeNetworkForPlayers(network) : null;
 }
 
 async function publishNetworkProjection(journal, network = null) {
@@ -535,7 +526,7 @@ function handleNetworkSocket(payload) {
 }
 
 function buildGraph(network, showHidden) {
-  if (!network) return { width: 920, height: 500, nodes: [], connections: [] };
+  if (!network) return { width: DEFAULT_CANVAS.width, height: DEFAULT_CANVAS.height, nodes: [], connections: [] };
 
   const nodes = network.nodes.filter((node) => showHidden || node.revealed);
   const nodeIds = new Set(nodes.map((node) => node.id));
@@ -547,64 +538,23 @@ function buildGraph(network, showHidden) {
   );
 
   if (!nodes.length) {
-    return { width: 920, height: 500, nodes: [], connections: [] };
+    return { width: DEFAULT_CANVAS.width, height: DEFAULT_CANVAS.height, nodes: [], connections: [] };
   }
 
-  const adjacency = new Map(nodes.map((node) => [node.id, []]));
-  const indegree = new Map(nodes.map((node) => [node.id, 0]));
-  for (const connection of connections) {
-    adjacency.get(connection.source)?.push(connection.target);
-    adjacency.get(connection.target)?.push(connection.source);
-    indegree.set(connection.target, (indegree.get(connection.target) ?? 0) + 1);
-  }
-
-  const preferredRoot =
-    nodes.find((node) => node.type === "server") ??
-    nodes.find((node) => (indegree.get(node.id) ?? 0) === 0) ??
-    nodes[0];
-  const levels = new Map([[preferredRoot.id, 0]]);
-  const queue = [preferredRoot.id];
-
-  while (queue.length) {
-    const current = queue.shift();
-    const nextLevel = (levels.get(current) ?? 0) + 1;
-    for (const next of adjacency.get(current) ?? []) {
-      if (levels.has(next)) continue;
-      levels.set(next, nextLevel);
-      queue.push(next);
-    }
-  }
-
-  let orphanLevel = Math.max(...levels.values(), 0) + 1;
-  for (const node of nodes) {
-    if (!levels.has(node.id)) {
-      levels.set(node.id, orphanLevel);
-      orphanLevel += 1;
-    }
-  }
-
-  const grouped = new Map();
-  for (const node of nodes) {
-    const level = levels.get(node.id);
-    if (!grouped.has(level)) grouped.set(level, []);
-    grouped.get(level).push(node);
-  }
-
-  const maxLevel = Math.max(...grouped.keys(), 0);
-  const maxRows = Math.max(...Array.from(grouped.values(), (group) => group.length), 1);
-  const width = Math.max(920, 210 + maxLevel * 235);
-  const height = Math.max(500, 140 + maxRows * 145);
-  const positioned = [];
-
-  for (const [level, group] of grouped.entries()) {
-    const gap = height / (group.length + 1);
-    group.forEach((node, index) => {
-      const x = 45 + level * 235;
-      const y = Math.round(gap * (index + 1) - 55);
-      const decorated = decorateNode(node, x, y);
-      positioned.push(decorated);
-    });
-  }
+  const width = Math.max(
+    DEFAULT_CANVAS.width,
+    ...nodes.map((node) => node.position.x + DEFAULT_CANVAS.nodeWidth + 320),
+  );
+  const height = Math.max(
+    DEFAULT_CANVAS.height,
+    ...nodes.map((node) =>
+      node.position.y +
+      DEFAULT_CANVAS.nodeHeight +
+      (node.demons?.length ?? 0) * 24 +
+      240),
+  );
+  const positioned = nodes.map((node) =>
+    decorateNode(node, node.position.x, node.position.y));
 
   const decoratedConnections = connections.map((connection) => {
     return {
@@ -628,6 +578,12 @@ function decorateNode(node, x = 0, y = 0) {
     typeLabel: type.label,
     icon: type.icon,
     stateLabel: NODE_STATES[node.state] ?? node.state ?? "Normal",
+    visibleDatafileCount: node.datafiles?.filter((entry) => entry.revealed).length ?? 0,
+    demonCount: node.demons?.length ?? 0,
+    demons: (node.demons ?? []).map((demon) => ({
+      ...demon,
+      isFragged: demon.state === "fragged" || (demon.maxHp > 0 && demon.currentHp <= 0),
+    })),
     positionStyle: `left:${x}px;top:${y}px`,
     cssClass: [
       node.revealed ? "is-revealed" : "is-hidden",
@@ -718,6 +674,7 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
   foundry.applications.api.ApplicationV2,
 ) {
   selectedNodeId = null;
+  selectedConnectionId = null;
   connectionGeometryFrame = null;
   connectionResizeObserver = null;
   connectionEventController = null;
@@ -741,13 +698,32 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
       saveNetwork: this.saveNetwork,
       addNode: this.addNode,
       editNode: this.editNode,
+      saveNodeInspector: this.saveNodeInspector,
+      duplicateNode: this.duplicateNode,
+      autoArrange: this.autoArrange,
+      connectSelectedNode: this.connectSelectedNode,
       deleteNode: this.deleteNode,
       toggleNodeReveal: this.toggleNodeReveal,
       selectNode: this.selectNode,
       addConnection: this.addConnection,
       editConnection: this.editConnection,
+      saveConnectionInspector: this.saveConnectionInspector,
+      selectConnection: this.selectConnection,
       deleteConnection: this.deleteConnection,
       toggleConnectionReveal: this.toggleConnectionReveal,
+      addDatafile: this.addDatafile,
+      editDatafile: this.editDatafile,
+      deleteDatafile: this.deleteDatafile,
+      toggleDatafileReveal: this.toggleDatafileReveal,
+      addDemon: this.addDemon,
+      editDemon: this.editDemon,
+      duplicateDemon: this.duplicateDemon,
+      deleteDemon: this.deleteDemon,
+      toggleDemonReveal: this.toggleDemonReveal,
+      addWatchdog: this.addWatchdog,
+      editWatchdog: this.editWatchdog,
+      deleteWatchdog: this.deleteWatchdog,
+      toggleWatchdogReveal: this.toggleWatchdogReveal,
       requestAction: this.requestAction,
     },
   };
@@ -803,12 +779,48 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
         ? "ALERTED"
         : `${Number(network.alertProgress) || 0} of 2 alert actions`;
 
-    if (!this.selectedNodeId || !findNode(network, this.selectedNodeId)) {
+    if (this.selectedConnectionId &&
+        !network.connections.some((connection) => connection.id === this.selectedConnectionId)) {
+      this.selectedConnectionId = null;
+    }
+    if (!this.selectedConnectionId &&
+        (!this.selectedNodeId || !findNode(network, this.selectedNodeId))) {
       this.selectedNodeId = network.nodes[0]?.id ?? null;
     }
     const selectedNode = findNode(network, this.selectedNodeId);
     context.selectedNode = selectedNode ? decorateNode(selectedNode) : null;
+    const selectedConnection = network.connections.find(
+      (connection) => connection.id === this.selectedConnectionId,
+    );
+    context.selectedConnection = selectedConnection
+      ? {
+          ...selectedConnection,
+          label: connectionLabel(selectedConnection, network),
+          nodeOptions: network.nodes.map((node) => ({
+            id: node.id,
+            name: node.name,
+            sourceSelected: node.id === selectedConnection.source,
+            targetSelected: node.id === selectedConnection.target,
+          })),
+        }
+      : null;
     context.playerActions = PLAYER_ACTIONS;
+    context.nodeTypeOptions = Object.entries(NODE_TYPES).map(([id, config]) => ({
+      id,
+      label: config.label,
+      icon: config.icon,
+      selected: id === selectedNode?.type,
+    }));
+    context.nodeStateOptions = Object.entries(NODE_STATES).map(([id, label]) => ({
+      id,
+      label,
+      selected: id === selectedNode?.state,
+    }));
+    context.nodePalette = Object.entries(NODE_TYPES).map(([id, config]) => ({
+      id,
+      label: config.label,
+      icon: config.icon,
+    }));
 
     if (game.user.isGM) {
       context.nodeList = network.nodes.map((node) => decorateNode(node));
@@ -829,9 +841,160 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
       if (!game.user.isGM) return;
       await game.settings.set(MODULE_ID, "activeNetworkId", event.currentTarget.value);
       this.selectedNodeId = null;
+      this.selectedConnectionId = null;
       await publishNetworkProjection(getActiveNetworkDocument());
       this.render();
     });
+    if (game.user.isGM) this._enableVisualEditor();
+  }
+
+  _enableVisualEditor() {
+    const graph = this.element.querySelector(".cwnce-graph");
+    if (!graph) return;
+
+    for (const paletteItem of this.element.querySelectorAll("[data-palette-node-type]")) {
+      paletteItem.addEventListener("dragstart", (event) => {
+        event.dataTransfer.effectAllowed = "copy";
+        event.dataTransfer.setData(
+          "application/x-cwnce-node-type",
+          paletteItem.dataset.paletteNodeType,
+        );
+      });
+    }
+    graph.addEventListener("dragover", (event) => {
+      if (!event.dataTransfer.types.includes("application/x-cwnce-node-type")) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "copy";
+      graph.classList.add("is-drop-target");
+    });
+    graph.addEventListener("dragleave", () => graph.classList.remove("is-drop-target"));
+    graph.addEventListener("drop", async (event) => {
+      const type = event.dataTransfer.getData("application/x-cwnce-node-type");
+      if (!NODE_TYPES[type]) return;
+      event.preventDefault();
+      graph.classList.remove("is-drop-target");
+      const rect = graph.getBoundingClientRect();
+      await this._createPaletteNode(type, {
+        x: event.clientX - rect.left - DEFAULT_CANVAS.nodeWidth / 2,
+        y: event.clientY - rect.top - DEFAULT_CANVAS.nodeHeight / 2,
+      }, { width: graph.offsetWidth, height: graph.offsetHeight });
+    });
+
+    for (const nodeElement of graph.querySelectorAll(".cwnce-graph-node")) {
+      nodeElement.addEventListener("pointerdown", (event) =>
+        this._beginNodeDrag(event, nodeElement, graph));
+    }
+    for (const line of graph.querySelectorAll("line[data-connection-id]")) {
+      line.addEventListener("click", () => {
+        this.selectedConnectionId = line.dataset.connectionId;
+        this.selectedNodeId = null;
+        this.render();
+      });
+    }
+  }
+
+  async _createPaletteNode(type, position, bounds) {
+    const journal = getActiveNetworkDocument();
+    const network = getNetworkData(journal);
+    if (!journal || !network) return;
+    const previousSelection = findNode(network, this.selectedNodeId);
+    const label = NODE_TYPES[type].label;
+    const existing = network.nodes.filter((node) => node.type === type).length;
+    const node = createNode({
+      id: foundry.utils.randomID(),
+      type,
+      name: existing ? `${label} ${existing + 1}` : label,
+      position: clampPosition(position, { ...DEFAULT_CANVAS, ...bounds }),
+    });
+    network.nodes.push(node);
+    if (previousSelection &&
+        !connectionExists(network.connections, previousSelection.id, node.id)) {
+      network.connections.push({
+        id: foundry.utils.randomID(),
+        source: previousSelection.id,
+        target: node.id,
+        revealed: previousSelection.revealed && node.revealed,
+        barrier: false,
+        barrierLocked: false,
+        oneWay: false,
+        gmNotes: "",
+      });
+      ui.notifications.info(`Created ${node.name} and connected it to ${previousSelection.name}.`);
+    } else {
+      ui.notifications.info(`Created ${node.name}.`);
+    }
+    await saveNetwork(journal, network);
+    this.selectedNodeId = node.id;
+    this.selectedConnectionId = null;
+    this.render();
+  }
+
+  _beginNodeDrag(event, element, graph) {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    const start = {
+      x: event.clientX,
+      y: event.clientY,
+      left: Number.parseFloat(element.style.left) || 0,
+      top: Number.parseFloat(element.style.top) || 0,
+    };
+    let moved = false;
+    element.setPointerCapture(event.pointerId);
+    element.classList.add("is-dragging");
+
+    const move = (moveEvent) => {
+      const dx = moveEvent.clientX - start.x;
+      const dy = moveEvent.clientY - start.y;
+      moved ||= Math.hypot(dx, dy) > 4;
+      if (!moved) return;
+      const position = clampPosition(
+        { x: start.left + dx, y: start.top + dy },
+        {
+          ...DEFAULT_CANVAS,
+          width: graph.offsetWidth,
+          height: graph.offsetHeight,
+          nodeWidth: element.offsetWidth,
+          nodeHeight: element.offsetHeight,
+        },
+      );
+      element.style.left = `${position.x}px`;
+      element.style.top = `${position.y}px`;
+      this._refreshConnectionGeometry();
+    };
+    const finish = async (upEvent) => {
+      element.removeEventListener("pointermove", move);
+      element.removeEventListener("pointerup", finish);
+      element.removeEventListener("pointercancel", finish);
+      element.classList.remove("is-dragging");
+      if (!moved) {
+        this.selectedNodeId = element.dataset.nodeId;
+        this.selectedConnectionId = null;
+        this.render();
+        return;
+      }
+      upEvent.preventDefault();
+      const journal = getActiveNetworkDocument();
+      const network = getNetworkData(journal);
+      const node = findNode(network, element.dataset.nodeId);
+      if (!journal || !network || !node) return;
+      node.position = clampPosition({
+        x: Number.parseFloat(element.style.left),
+        y: Number.parseFloat(element.style.top),
+      }, {
+        ...DEFAULT_CANVAS,
+        width: graph.offsetWidth,
+        height: graph.offsetHeight,
+        nodeWidth: element.offsetWidth,
+        nodeHeight: element.offsetHeight,
+      });
+      await saveNetwork(journal, network);
+      this.selectedNodeId = node.id;
+      this.selectedConnectionId = null;
+      this.render();
+    };
+    element.addEventListener("pointermove", move);
+    element.addEventListener("pointerup", finish);
+    element.addEventListener("pointercancel", finish);
   }
 
   _watchConnectionGeometry() {
@@ -1033,18 +1196,25 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
     });
     if (!data?.name) return;
 
-    const node = {
+    const arrangements = autoArrangePositions(
+      [...network.nodes, { id: "new-node", type: data.type }],
+      network.connections,
+      {
+        ...DEFAULT_CANVAS,
+        width: Math.max(DEFAULT_CANVAS.width, 240 + network.nodes.length * 80),
+        height: Math.max(DEFAULT_CANVAS.height, 180 + network.nodes.length * 70),
+      },
+    );
+    const node = createNode({
       id: foundry.utils.randomID(),
       name: String(data.name).trim(),
       type: NODE_TYPES[data.type] ? data.type : "custom",
-      state: NODE_STATES[data.state] ? data.state : "normal",
-      revealed: data.revealed === "on",
-      description: String(data.description || "").trim(),
-      gmNotes: String(data.gmNotes || "").trim(),
-      datafiles: String(data.datafiles || "").trim(),
-      demons: String(data.demons || "").trim(),
-      watchdogs: String(data.watchdogs || "").trim(),
-    };
+      position: arrangements["new-node"],
+    });
+    node.state = NODE_STATES[data.state] ? data.state : "normal";
+    node.revealed = data.revealed === "on";
+    node.description = String(data.description || "").trim();
+    node.gmNotes = String(data.gmNotes || "").trim();
     network.nodes.push(node);
 
     if (data.connectedTo && findNode(network, data.connectedTo)) {
@@ -1084,11 +1254,65 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
     node.revealed = data.revealed === "on";
     node.description = String(data.description || "").trim();
     node.gmNotes = String(data.gmNotes || "").trim();
-    node.datafiles = String(data.datafiles || "").trim();
-    node.demons = String(data.demons || "").trim();
-    node.watchdogs = String(data.watchdogs || "").trim();
-
     await saveNetwork(journal, network);
+    this.render();
+  }
+
+  static async saveNodeInspector(_event, target) {
+    if (!game.user.isGM) return;
+    const journal = getActiveNetworkDocument();
+    const network = getNetworkData(journal);
+    const form = target.closest("form");
+    const node = findNode(network, form?.dataset.nodeId);
+    if (!journal || !network || !form || !node) return;
+    const data = Object.fromEntries(new FormData(form).entries());
+    node.name = String(data.name || node.name).trim();
+    node.type = NODE_TYPES[data.type] ? data.type : "custom";
+    node.state = NODE_STATES[data.state] ? data.state : "normal";
+    node.revealed = data.revealed === "on";
+    node.description = String(data.description || "").trim();
+    node.gmNotes = String(data.gmNotes || "").trim();
+    await saveNetwork(journal, network);
+    ui.notifications.info(`${node.name} saved.`);
+    this.render();
+  }
+
+  static async duplicateNode(_event, target) {
+    if (!game.user.isGM) return;
+    const journal = getActiveNetworkDocument();
+    const network = getNetworkData(journal);
+    if (!journal || !network) return;
+    const result = duplicateNode(
+      network,
+      target.dataset.nodeId,
+      foundry.utils.randomID(),
+      {
+        ...DEFAULT_CANVAS,
+        width: Math.max(DEFAULT_CANVAS.width, ...network.nodes.map((node) => node.position.x + 260)),
+        height: Math.max(DEFAULT_CANVAS.height, ...network.nodes.map((node) => node.position.y + 210)),
+      },
+    );
+    if (!result.node) return;
+    await saveNetwork(journal, result.network);
+    this.selectedNodeId = result.node.id;
+    this.selectedConnectionId = null;
+    ui.notifications.info(`Duplicated ${result.node.name}.`);
+    this.render();
+  }
+
+  static async autoArrange() {
+    if (!game.user.isGM) return;
+    const journal = getActiveNetworkDocument();
+    const network = getNetworkData(journal);
+    if (!journal || !network) return;
+    const positions = autoArrangePositions(network.nodes, network.connections, {
+      ...DEFAULT_CANVAS,
+      width: Math.max(DEFAULT_CANVAS.width, 300 + network.nodes.length * 100),
+      height: Math.max(DEFAULT_CANVAS.height, 220 + network.nodes.length * 90),
+    });
+    for (const node of network.nodes) node.position = positions[node.id];
+    await saveNetwork(journal, network);
+    ui.notifications.info("Network nodes arranged.");
     this.render();
   }
 
@@ -1105,12 +1329,10 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
     );
     if (!confirmed) return;
 
-    network.nodes = network.nodes.filter((candidate) => candidate.id !== node.id);
-    network.connections = network.connections.filter(
-      (connection) => connection.source !== node.id && connection.target !== node.id,
-    );
-    await saveNetwork(journal, network);
-    this.selectedNodeId = network.nodes[0]?.id ?? null;
+    const updated = deleteNodeAndConnections(network, node.id);
+    await saveNetwork(journal, updated);
+    this.selectedNodeId = updated.nodes[0]?.id ?? null;
+    this.selectedConnectionId = null;
     this.render();
   }
 
@@ -1127,6 +1349,7 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
 
   static selectNode(_event, target) {
     this.selectedNodeId = target.dataset.nodeId;
+    this.selectedConnectionId = null;
     this.render();
   }
 
@@ -1145,8 +1368,12 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
       content: connectionDialogContent(network),
     });
     if (!data?.source || !data?.target || data.source === data.target) return;
+    if (connectionExists(network.connections, data.source, data.target)) {
+      ui.notifications.warn("Those nodes are already connected.");
+      return;
+    }
 
-    network.connections.push({
+    const connection = {
       id: foundry.utils.randomID(),
       source: data.source,
       target: data.target,
@@ -1155,8 +1382,58 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
       barrierLocked: data.barrier === "on" && data.barrierLocked === "on",
       oneWay: data.oneWay === "on",
       gmNotes: String(data.gmNotes || "").trim(),
-    });
+    };
+    network.connections.push(connection);
     await saveNetwork(journal, network);
+    this.selectedConnectionId = connection.id;
+    this.selectedNodeId = null;
+    this.render();
+  }
+
+  static async connectSelectedNode(_event, target) {
+    if (!game.user.isGM) return;
+    const journal = getActiveNetworkDocument();
+    const network = getNetworkData(journal);
+    const sourceId = target.dataset.nodeId;
+    if (!journal || !network || !findNode(network, sourceId)) return;
+    const candidates = network.nodes.filter((node) => node.id !== sourceId);
+    if (!candidates.length) {
+      ui.notifications.warn("Add another node before creating a connection.");
+      return;
+    }
+    const data = await waitForFormDialog({
+      title: "Connect Selected Node",
+      saveLabel: "Connect",
+      content: `
+        <div class="form-group">
+          <label>Target Node</label>
+          <select name="target">${nodeOptionMarkup(candidates)}</select>
+        </div>
+        <div class="form-group">
+          <label>Revealed to Players</label>
+          <input type="checkbox" name="revealed">
+        </div>
+      `,
+    });
+    if (!data?.target) return;
+    if (connectionExists(network.connections, sourceId, data.target)) {
+      ui.notifications.warn("Those nodes are already connected.");
+      return;
+    }
+    const connection = {
+      id: foundry.utils.randomID(),
+      source: sourceId,
+      target: data.target,
+      revealed: data.revealed === "on",
+      barrier: false,
+      barrierLocked: false,
+      oneWay: false,
+      gmNotes: "",
+    };
+    network.connections.push(connection);
+    await saveNetwork(journal, network);
+    this.selectedConnectionId = connection.id;
+    this.selectedNodeId = null;
     this.render();
   }
 
@@ -1174,6 +1451,10 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
       content: connectionDialogContent(network, connection),
     });
     if (!data?.source || !data?.target || data.source === data.target) return;
+    if (connectionExists(network.connections, data.source, data.target, connection.id)) {
+      ui.notifications.warn("Those nodes are already connected.");
+      return;
+    }
 
     connection.source = data.source;
     connection.target = data.target;
@@ -1183,6 +1464,42 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
     connection.oneWay = data.oneWay === "on";
     connection.gmNotes = String(data.gmNotes || "").trim();
     await saveNetwork(journal, network);
+    this.render();
+  }
+
+  static selectConnection(_event, target) {
+    this.selectedConnectionId = target.dataset.connectionId;
+    this.selectedNodeId = null;
+    this.render();
+  }
+
+  static async saveConnectionInspector(_event, target) {
+    if (!game.user.isGM) return;
+    const journal = getActiveNetworkDocument();
+    const network = getNetworkData(journal);
+    const form = target.closest("form");
+    const connection = network?.connections.find(
+      (candidate) => candidate.id === form?.dataset.connectionId,
+    );
+    if (!journal || !network || !form || !connection) return;
+    const data = Object.fromEntries(new FormData(form).entries());
+    if (!data.source || !data.target || data.source === data.target) {
+      ui.notifications.warn("A connection needs two different nodes.");
+      return;
+    }
+    if (connectionExists(network.connections, data.source, data.target, connection.id)) {
+      ui.notifications.warn("Those nodes are already connected.");
+      return;
+    }
+    connection.source = data.source;
+    connection.target = data.target;
+    connection.revealed = data.revealed === "on";
+    connection.oneWay = data.oneWay === "on";
+    connection.barrier = data.barrier === "on";
+    connection.barrierLocked = connection.barrier && data.barrierLocked === "on";
+    connection.gmNotes = String(data.gmNotes || "").trim();
+    await saveNetwork(journal, network);
+    ui.notifications.info("Connection saved.");
     this.render();
   }
 
@@ -1204,6 +1521,8 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
       (candidate) => candidate.id !== connection.id,
     );
     await saveNetwork(journal, network);
+    this.selectedConnectionId = null;
+    this.selectedNodeId = network.nodes[0]?.id ?? null;
     this.render();
   }
 
@@ -1218,6 +1537,182 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
     connection.revealed = !connection.revealed;
     await saveNetwork(journal, network);
     this.render();
+  }
+
+  static async addDatafile(_event, target) {
+    if (!game.user.isGM) return;
+    const journal = getActiveNetworkDocument();
+    const network = getNetworkData(journal);
+    const node = findNode(network, target.dataset.nodeId);
+    if (!journal || !network || !node) return;
+    const data = await waitForFormDialog({
+      title: "Add Datafile",
+      saveLabel: "Add Datafile",
+      content: datafileDialogContent(),
+    });
+    if (!data?.name) return;
+    node.datafiles.push(datafileFromForm(data, foundry.utils.randomID()));
+    await saveNetwork(journal, network);
+    this.render();
+  }
+
+  static async editDatafile(_event, target) {
+    if (!game.user.isGM) return;
+    const journal = getActiveNetworkDocument();
+    const network = getNetworkData(journal);
+    const node = findNode(network, target.dataset.nodeId);
+    const index = node?.datafiles.findIndex((entry) => entry.id === target.dataset.datafileId);
+    if (!journal || !network || !node || index < 0) return;
+    const data = await waitForFormDialog({
+      title: `Edit ${node.datafiles[index].name}`,
+      content: datafileDialogContent(node.datafiles[index]),
+    });
+    if (!data?.name) return;
+    node.datafiles[index] = datafileFromForm(data, node.datafiles[index].id);
+    await saveNetwork(journal, network);
+    this.render();
+  }
+
+  static async deleteDatafile(_event, target) {
+    if (!game.user.isGM) return;
+    const journal = getActiveNetworkDocument();
+    const network = getNetworkData(journal);
+    const node = findNode(network, target.dataset.nodeId);
+    const datafile = node?.datafiles.find((entry) => entry.id === target.dataset.datafileId);
+    if (!journal || !network || !node || !datafile) return;
+    if (!await confirmAction("Delete Datafile", `Delete ${foundry.utils.escapeHTML(datafile.name)}?`)) return;
+    node.datafiles = node.datafiles.filter((entry) => entry.id !== datafile.id);
+    await saveNetwork(journal, network);
+    this.render();
+  }
+
+  static async toggleDatafileReveal(_event, target) {
+    await toggleNodeEntry(this, target, "datafiles", "datafileId");
+  }
+
+  static async addDemon(_event, target) {
+    if (!game.user.isGM) return;
+    const journal = getActiveNetworkDocument();
+    const network = getNetworkData(journal);
+    const node = findNode(network, target.dataset.nodeId);
+    if (!journal || !network || !node) return;
+    const data = await waitForFormDialog({
+      title: "Add Demon",
+      saveLabel: "Add Demon",
+      content: demonDialogContent(),
+    });
+    if (!data?.class) return;
+    const demon = demonFromForm(data, foundry.utils.randomID());
+    if (!demon) return;
+    node.demons.push(demon);
+    await saveNetwork(journal, network);
+    this.render();
+  }
+
+  static async editDemon(_event, target) {
+    if (!game.user.isGM) return;
+    const journal = getActiveNetworkDocument();
+    const network = getNetworkData(journal);
+    const node = findNode(network, target.dataset.nodeId);
+    const index = node?.demons.findIndex((entry) => entry.id === target.dataset.demonId);
+    if (!journal || !network || !node || index < 0) return;
+    const data = await waitForFormDialog({
+      title: `Edit ${node.demons[index].name}`,
+      content: demonDialogContent(node.demons[index]),
+    });
+    if (!data?.class) return;
+    const demon = demonFromForm(data, node.demons[index].id, node.demons[index]);
+    if (!demon) return;
+    node.demons[index] = demon;
+    await saveNetwork(journal, network);
+    this.render();
+  }
+
+  static async duplicateDemon(_event, target) {
+    if (!game.user.isGM) return;
+    const journal = getActiveNetworkDocument();
+    const network = getNetworkData(journal);
+    const node = findNode(network, target.dataset.nodeId);
+    const original = node?.demons.find((entry) => entry.id === target.dataset.demonId);
+    if (!journal || !network || !node || !original) return;
+    const copy = foundry.utils.deepClone(original);
+    copy.id = foundry.utils.randomID();
+    copy.name = `${original.name} Copy`;
+    copy.commands = copy.commands.map((command) => ({
+      ...command,
+      id: foundry.utils.randomID(),
+    }));
+    node.demons.push(copy);
+    await saveNetwork(journal, network);
+    this.render();
+  }
+
+  static async deleteDemon(_event, target) {
+    if (!game.user.isGM) return;
+    const journal = getActiveNetworkDocument();
+    const network = getNetworkData(journal);
+    const node = findNode(network, target.dataset.nodeId);
+    const demon = node?.demons.find((entry) => entry.id === target.dataset.demonId);
+    if (!journal || !network || !node || !demon) return;
+    if (!await confirmAction("Delete Demon", `Delete ${foundry.utils.escapeHTML(demon.name)}?`)) return;
+    node.demons = node.demons.filter((entry) => entry.id !== demon.id);
+    await saveNetwork(journal, network);
+    this.render();
+  }
+
+  static async toggleDemonReveal(_event, target) {
+    await toggleNodeEntry(this, target, "demons", "demonId");
+  }
+
+  static async addWatchdog(_event, target) {
+    if (!game.user.isGM) return;
+    const journal = getActiveNetworkDocument();
+    const network = getNetworkData(journal);
+    const node = findNode(network, target.dataset.nodeId);
+    if (!journal || !network || !node) return;
+    const data = await waitForFormDialog({
+      title: "Add Watchdog",
+      saveLabel: "Add Watchdog",
+      content: watchdogDialogContent(),
+    });
+    if (!data?.name) return;
+    node.watchdogs.push(watchdogFromForm(data, foundry.utils.randomID()));
+    await saveNetwork(journal, network);
+    this.render();
+  }
+
+  static async editWatchdog(_event, target) {
+    if (!game.user.isGM) return;
+    const journal = getActiveNetworkDocument();
+    const network = getNetworkData(journal);
+    const node = findNode(network, target.dataset.nodeId);
+    const index = node?.watchdogs.findIndex((entry) => entry.id === target.dataset.watchdogId);
+    if (!journal || !network || !node || index < 0) return;
+    const data = await waitForFormDialog({
+      title: `Edit ${node.watchdogs[index].name}`,
+      content: watchdogDialogContent(node.watchdogs[index]),
+    });
+    if (!data?.name) return;
+    node.watchdogs[index] = watchdogFromForm(data, node.watchdogs[index].id);
+    await saveNetwork(journal, network);
+    this.render();
+  }
+
+  static async deleteWatchdog(_event, target) {
+    if (!game.user.isGM) return;
+    const journal = getActiveNetworkDocument();
+    const network = getNetworkData(journal);
+    const node = findNode(network, target.dataset.nodeId);
+    const watchdog = node?.watchdogs.find((entry) => entry.id === target.dataset.watchdogId);
+    if (!journal || !network || !node || !watchdog) return;
+    if (!await confirmAction("Delete Watchdog", `Delete ${foundry.utils.escapeHTML(watchdog.name)}?`)) return;
+    node.watchdogs = node.watchdogs.filter((entry) => entry.id !== watchdog.id);
+    await saveNetwork(journal, network);
+    this.render();
+  }
+
+  static async toggleWatchdogReveal(_event, target) {
+    await toggleNodeEntry(this, target, "watchdogs", "watchdogId");
   }
 
   static async requestAction(_event, target) {
@@ -1269,6 +1764,140 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
   }
 }
 
+async function toggleNodeEntry(app, target, collectionName, datasetKey) {
+  if (!game.user.isGM) return;
+  const journal = getActiveNetworkDocument();
+  const network = getNetworkData(journal);
+  const node = findNode(network, target.dataset.nodeId);
+  const entry = node?.[collectionName]?.find(
+    (candidate) => candidate.id === target.dataset[datasetKey],
+  );
+  if (!journal || !network || !node || !entry) return;
+  entry.revealed = !entry.revealed;
+  await saveNetwork(journal, network);
+  app.render();
+}
+
+function datafileFromForm(data, id) {
+  return {
+    id,
+    name: String(data.name || "Datafile").trim(),
+    description: String(data.description || "").trim(),
+    gmNotes: String(data.gmNotes || "").trim(),
+    value: Math.max(0, Math.trunc(Number(data.value) || 0)),
+    revealed: data.revealed === "on",
+    copied: data.copied === "on",
+  };
+}
+
+function datafileDialogContent(datafile = {}) {
+  const escaped = (value) => foundry.utils.escapeHTML(String(value ?? ""));
+  return `
+    <div class="form-group"><label>Name</label><input name="name" value="${escaped(datafile.name)}" required></div>
+    <div class="form-group"><label>Value (credits)</label><input type="number" min="0" step="1" name="value" value="${Number(datafile.value) || 0}"></div>
+    <div class="form-group"><label>Revealed / discovered</label><input type="checkbox" name="revealed"${datafile.revealed ? " checked" : ""}></div>
+    <div class="form-group"><label>Copied</label><input type="checkbox" name="copied"${datafile.copied ? " checked" : ""}></div>
+    <div class="form-group stacked"><label>Player-safe description</label><textarea name="description" rows="3">${escaped(datafile.description)}</textarea></div>
+    <div class="form-group stacked"><label>Private GM notes</label><textarea name="gmNotes" rows="3">${escaped(datafile.gmNotes)}</textarea></div>
+  `;
+}
+
+function demonFromForm(data, id, existing = null) {
+  const template = createDemonFromTemplate(String(data.class || ""), id);
+  if (!template) return null;
+  const fallback = existing?.class === data.class ? existing : template;
+  const maxHp = Math.max(
+    0,
+    Math.trunc(data.maxHp === "" ? fallback.maxHp : Number(data.maxHp)),
+  );
+  let currentHp = Math.min(
+    maxHp,
+    Math.max(0, Math.trunc(data.currentHp === "" ? fallback.currentHp : Number(data.currentHp))),
+  );
+  if (data.state === "fragged") currentHp = 0;
+  const verb = CWN_PROGRAM_VERBS.includes(data.currentVerb) ? data.currentVerb : "";
+  const subject = CWN_PROGRAM_SUBJECTS.includes(data.currentSubject) ? data.currentSubject : "";
+  if ((verb || subject) && !programsAreRulesCompatible(verb, subject)) {
+    ui.notifications.warn("That Verb and Subject combination is not supported by the CWN program targets.");
+    return null;
+  }
+  const commands = String(data.commands || "")
+    .split(/\r?\n/)
+    .map((command) => command.trim())
+    .filter(Boolean);
+  if (commands.length > template.lineLimit) {
+    ui.notifications.warn(
+      `${data.class} supports at most ${template.lineLimit} command line(s).`,
+    );
+    return null;
+  }
+  return {
+    ...template,
+    id,
+    name: String(data.name || data.class).trim(),
+    class: data.class,
+    currentHp,
+    maxHp,
+    skill: Math.trunc(data.skill === "" ? fallback.skill : Number(data.skill)),
+    state: currentHp === 0 ? "fragged" : (data.state === "fragged" ? "fragged" : "active"),
+    commands: commands
+      .map((command) => ({ id: foundry.utils.randomID(), text: command })),
+    revealed: data.revealed === "on",
+    currentVerb: verb,
+    currentSubject: subject,
+    notes: String(data.notes || "").trim(),
+  };
+}
+
+function demonDialogContent(demon = {}) {
+  const escaped = (value) => foundry.utils.escapeHTML(String(value ?? ""));
+  const classOptions = optionMarkup(
+    Object.fromEntries(Object.keys(CWN_DEMON_TEMPLATES).map((name) => [name, name])),
+    demon.class,
+  );
+  const verbOptions = `<option value="">No current Verb</option>${optionMarkup(
+    Object.fromEntries(CWN_PROGRAM_VERBS.map((name) => [name, name])),
+    demon.currentVerb,
+  )}`;
+  const subjectOptions = `<option value="">No current Subject</option>${optionMarkup(
+    Object.fromEntries(CWN_PROGRAM_SUBJECTS.map((name) => [name, name])),
+    demon.currentSubject,
+  )}`;
+  const commands = (demon.commands ?? []).map((command) => command.text).join("\n");
+  return `
+    <p class="hint">Class defaults are the CWN Demon table values. Saving a different class applies that class's defaults unless values are entered here.</p>
+    <div class="form-group"><label>Demon class</label><select name="class" required>${classOptions}</select></div>
+    <div class="form-group"><label>Name</label><input name="name" value="${escaped(demon.name)}" placeholder="Defaults to class name"></div>
+    <div class="form-group"><label>Current HP</label><input type="number" min="0" name="currentHp" value="${demon.currentHp ?? ""}" placeholder="Class default"></div>
+    <div class="form-group"><label>Maximum HP</label><input type="number" min="0" name="maxHp" value="${demon.maxHp ?? ""}" placeholder="Class default"></div>
+    <div class="form-group"><label>Skill bonus</label><input type="number" name="skill" value="${demon.skill ?? ""}" placeholder="Class default"></div>
+    <div class="form-group"><label>State</label><select name="state"><option value="active"${demon.state !== "fragged" ? " selected" : ""}>Active</option><option value="fragged"${demon.state === "fragged" ? " selected" : ""}>Fragged (0 HP)</option></select></div>
+    <div class="form-group"><label>Revealed to players</label><input type="checkbox" name="revealed"${demon.revealed ? " checked" : ""}></div>
+    <div class="form-group"><label>Current Verb</label><select name="currentVerb">${verbOptions}</select></div>
+    <div class="form-group"><label>Current Subject</label><select name="currentSubject">${subjectOptions}</select></div>
+    <div class="form-group stacked"><label>Prioritized command lines (one per line)</label><textarea name="commands" rows="5">${escaped(commands)}</textarea></div>
+    <div class="form-group stacked"><label>Private GM notes</label><textarea name="notes" rows="3">${escaped(demon.notes)}</textarea></div>
+  `;
+}
+
+function watchdogFromForm(data, id) {
+  return {
+    id,
+    name: String(data.name || "Watchdog").trim(),
+    notes: String(data.notes || "").trim(),
+    revealed: data.revealed === "on",
+  };
+}
+
+function watchdogDialogContent(watchdog = {}) {
+  const escaped = (value) => foundry.utils.escapeHTML(String(value ?? ""));
+  return `
+    <div class="form-group"><label>Name</label><input name="name" value="${escaped(watchdog.name)}" required></div>
+    <div class="form-group"><label>Revealed to players</label><input type="checkbox" name="revealed"${watchdog.revealed ? " checked" : ""}></div>
+    <div class="form-group stacked"><label>Private GM notes</label><textarea name="notes" rows="4">${escaped(watchdog.notes)}</textarea></div>
+  `;
+}
+
 function nodeDialogContent(node = {}, connectedOptions = "") {
   const escaped = (value) => foundry.utils.escapeHTML(String(value ?? ""));
   const connectedField = connectedOptions
@@ -1300,18 +1929,6 @@ function nodeDialogContent(node = {}, connectedOptions = "") {
     <div class="form-group stacked">
       <label>Player Description</label>
       <textarea name="description" rows="2">${escaped(node.description)}</textarea>
-    </div>
-    <div class="form-group stacked">
-      <label>Datafiles Present</label>
-      <input type="text" name="datafiles" value="${escaped(node.datafiles)}" placeholder="Payroll archive, camera logs">
-    </div>
-    <div class="form-group stacked">
-      <label>Demons Present</label>
-      <input type="text" name="demons" value="${escaped(node.demons)}" placeholder="Mastiff / Patroller">
-    </div>
-    <div class="form-group stacked">
-      <label>Watchdogs Present</label>
-      <input type="text" name="watchdogs" value="${escaped(node.watchdogs)}" placeholder="Veteran tech">
     </div>
     <div class="form-group stacked">
       <label>Private GM Notes</label>
