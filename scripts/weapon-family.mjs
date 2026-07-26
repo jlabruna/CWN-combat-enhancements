@@ -246,7 +246,6 @@ function resolveLegacyBaseWeapon(value) {
 }
 
 function readFlag(item, scope, key) {
-  if (typeof item?.getFlag === "function") return item.getFlag(scope, key);
   return item?.flags?.[scope]?.[key];
 }
 

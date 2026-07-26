@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.10.2
+
+- Fixed weapon-sheet rendering when the optional `harbour-city-stories` or CWN
+  Content Pack flag scopes are not active. Family metadata is now read safely
+  from the Item's stored flags without asking Foundry to validate an inactive
+  package scope.
+- Added a regression test for inactive optional flag scopes.
+
 ## 0.10.1
 
 - Fixed the Weapon Family field failing to appear on SWNR 2.3.x weapon sheets

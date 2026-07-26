@@ -123,6 +123,16 @@ test("untagged and unrecognised legacy weapons preserve native fallback", () => 
   assert.equal(resolveWeaponFamily(weapon({ family: null, legacy: "Unknown Gun" })), null);
 });
 
+test("inactive optional flag scopes do not abort family resolution", () => {
+  const item = weapon({ family: null });
+  delete item.flags["harbour-city-stories"];
+  item.getFlag = () => {
+    throw new Error("Flag scope is not valid or not currently active");
+  };
+
+  assert.equal(resolveWeaponFamily(item), null);
+});
+
 test("magazine family resolution follows Combat Enhancements before Content Pack", () => {
   const item = magazine();
   item.flags["cwn-content-pack"] = { magazineFamily: "heavy-pistol" };
