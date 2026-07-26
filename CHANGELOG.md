@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.10.3
+
+- Fixed family-aware actor-sheet reload clicks using SWNR's cached native reload
+  action instead of exact round transfer.
+- Exact-magazine handling is now attached to the rendered reload control and
+  stops the native handler only when the weapon qualifies for automation.
+- Untagged weapons, disabled automation, and unsupported ammunition types still
+  use SWNR's native reload behavior.
+
 ## 0.10.2
 
 - Fixed weapon-sheet rendering when the optional `harbour-city-stories` or CWN

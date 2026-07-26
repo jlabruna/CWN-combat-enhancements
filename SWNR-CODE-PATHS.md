@@ -140,7 +140,11 @@ unchanged native type field into a GM-only advanced compatibility section.
 `module/sheets/base-sheet.mjs`, `SWNBaseSheet._onReload()`, is the native reload
 implementation. `module/sheets/actor-sheet.mjs` registers that inherited
 function by reference at
-`SWNActorSheet.DEFAULT_OPTIONS.actions.reload`. Version 0.10.0 therefore wraps
+`SWNActorSheet.DEFAULT_OPTIONS.actions.reload`. Foundry caches that action table
+before module `setup`, so mutating the static options afterward does not replace
+the live handler. Version 0.10.3 therefore attaches a direct handler to rendered
+`[data-action="reload"]` controls and stops propagation only for qualifying
+family-aware weapons. All fallback cases continue to the cached native action.
 that one action reference rather than broadly patching Item or Actor documents.
 
 The wrapper intercepts only family-aware non-infinite weapons while the feature

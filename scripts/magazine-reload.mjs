@@ -15,7 +15,6 @@ import {
   transferMagazineRounds,
 } from "./weapon-family.mjs";
 
-const RELOAD_PATCH = Symbol.for(`${MODULE_ID}.exactMagazineReloadPatch`);
 const SUPPORTED_SWNR_MINOR = "2.3";
 const warnedCompatibilityMessages = new Set();
 
@@ -46,19 +45,19 @@ Hooks.once("init", () => {
   });
 });
 
-Hooks.once("setup", () => {
-  installReloadPatch().catch((error) => {
-    warnCompatibility("reload-install", "Unable to install the SWNR reload wrapper.", error);
-  });
-});
-
 Hooks.on("renderApplicationV2", (application, element) => {
   if (!isSupportedSwnr()) return;
+  const root = element instanceof HTMLElement ? element : element?.[0];
+  if (!root) return;
+
+  if (application.actor && typeof application._getEmbeddedDocument === "function") {
+    installActorReloadHandlers(application, root);
+  }
+
   const item = application.item ?? application.document;
   if (item?.type !== "weapon") return;
 
-  const root = element instanceof HTMLElement ? element : element?.[0];
-  if (!root || root.querySelector(".cwnce-weapon-family-field")) return;
+  if (root.querySelector(".cwnce-weapon-family-field")) return;
   enhanceWeaponSheet(application, item, root);
 });
 
@@ -103,31 +102,24 @@ Hooks.on("deleteItem", (item, _options, userId) => {
   });
 });
 
-async function installReloadPatch() {
-  if (!isSupportedSwnr()) return;
+function installActorReloadHandlers(application, root) {
+  for (const target of root.querySelectorAll('[data-action="reload"]')) {
+    if (target.dataset.cwnceReloadHandler !== undefined) continue;
+    target.dataset.cwnceReloadHandler = "";
+    target.addEventListener("click", (event) => {
+      const weapon = application._getEmbeddedDocument?.(target);
+      if (!shouldUseExactMagazineReload(weapon)) return;
 
-  const path = foundry.utils.getRoute("systems/swnr/module/sheets/actor-sheet.mjs");
-  const { SWNActorSheet } = await import(path);
-  const actions = SWNActorSheet?.DEFAULT_OPTIONS?.actions;
-  const originalReload = actions?.reload;
-  if (typeof originalReload !== "function") {
-    warnCompatibility(
-      "reload-action",
-      "SWNR's actor-sheet reload action is unavailable; exact magazine automation was not installed.",
-    );
-    return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      reloadFromSelectedMagazine({ application, event, weapon }).catch((error) => {
+        console.error(`${MODULE_ID} | Exact magazine reload failed`, error);
+        ui.notifications?.error(
+          game.i18n.localize("CWNCE.Magazine.Errors.Failed"),
+        );
+      });
+    });
   }
-  if (originalReload[RELOAD_PATCH]) return;
-
-  const wrappedReload = async function (event, target) {
-    const weapon = this._getEmbeddedDocument?.(target);
-    if (!shouldUseExactMagazineReload(weapon)) {
-      return originalReload.call(this, event, target);
-    }
-    return reloadFromSelectedMagazine({ application: this, event, weapon });
-  };
-  Object.defineProperty(wrappedReload, RELOAD_PATCH, { value: true });
-  actions.reload = wrappedReload;
 }
 
 function shouldUseExactMagazineReload(weapon) {
