@@ -63,7 +63,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.10.5.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.10.6.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -202,7 +202,7 @@ designated-player sharing can be added without redesigning saved networks.
   weapon template or `SWNActorSheet.DEFAULT_OPTIONS.actions.reload`, the module
   logs a compatibility warning and leaves the affected integration unpatched.
 - Physical magazine Items are expected to be supplied by a content module or
-  created by the user. Version 0.10.5 does not create or migrate weapons or
+  created by the user. Version 0.10.6 does not create or migrate weapons or
   magazines.
 
 ## Suppressive Fire workflow
@@ -244,6 +244,13 @@ target for manual resolution and does not apply damage automatically.
   buttons remain available for GM corrections or exceptional rules.
 
 ## Changes
+
+### 0.10.6
+
+- Fixed Network Console connections shifting relative to stationary node cards
+  when the application canvas changed size.
+- The SVG viewBox now tracks its rendered CSS-pixel dimensions so resizing
+  cannot introduce aspect-ratio scaling or letterbox offsets.
 
 ### 0.10.5
 

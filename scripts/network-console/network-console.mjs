@@ -1,4 +1,7 @@
-import { calculateConnectionGeometry } from "./network-geometry.mjs";
+import {
+  calculateConnectionGeometry,
+  svgPixelViewBox,
+} from "./network-geometry.mjs";
 
 const MODULE_ID = "cwn-combat-enhancements";
 const SOCKET_NAME = `module.${MODULE_ID}`;
@@ -884,7 +887,15 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
     if (!graph || !svg) return;
 
     const svgRect = svg.getBoundingClientRect();
-    const viewBox = svg.viewBox?.baseVal;
+    const viewBox = svgPixelViewBox(svgRect);
+    if (!viewBox) {
+      delete svg.dataset.geometryReady;
+      return;
+    }
+    svg.setAttribute(
+      "viewBox",
+      `${viewBox.x} ${viewBox.y} ${viewBox.width} ${viewBox.height}`,
+    );
     const nodes = new Map(
       Array.from(graph.querySelectorAll(".cwnce-graph-node"), (node) => [
         node.dataset.nodeId,

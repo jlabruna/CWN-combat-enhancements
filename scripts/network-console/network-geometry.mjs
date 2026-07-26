@@ -28,6 +28,23 @@ function normalizeViewBox(viewBox, svgRect) {
 }
 
 /**
+ * Give the SVG a one-CSS-pixel-to-one-user-unit viewBox for its current size.
+ *
+ * Matching the viewBox aspect ratio to the rendered SVG prevents the browser's
+ * default preserveAspectRatio behavior from adding scale or letterbox offsets.
+ */
+export function svgPixelViewBox(svgViewportRect) {
+  const svgRect = normalizeRect(svgViewportRect);
+  if (svgRect.width <= 0 || svgRect.height <= 0) return null;
+  return {
+    x: 0,
+    y: 0,
+    width: svgRect.width,
+    height: svgRect.height,
+  };
+}
+
+/**
  * Convert a viewport-relative DOM rectangle into SVG user coordinates.
  *
  * Both the node and SVG rectangles come from getBoundingClientRect(), so scroll,

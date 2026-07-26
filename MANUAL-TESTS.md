@@ -1,6 +1,6 @@
 # Foundry VTT v13 / SWNR 2.3.x manual test checklist
 
-Use a disposable world with CWN Combat Enhancements 0.10.5 enabled. Test with
+Use a disposable world with CWN Combat Enhancements 0.10.6 enabled. Test with
 actor-owned weapon and magazine Items. Give each magazine
 `type: "item"`, `system.uses.consumable: "count"`, positive
 `system.uses.value/max`, and a Magazine Family flag.
@@ -32,8 +32,10 @@ player where requested.
 - [ ] Hiding and revealing a connection preserves its endpoints.
 - [ ] Adding and deleting a node redraws unrelated connections correctly.
 - [ ] Adding and deleting a connection redraws the graph correctly.
-- [ ] Resizing the application narrower and wider preserves every endpoint.
-- [ ] Resizing the application taller and shorter preserves every endpoint.
+- [ ] Resizing the application narrower and wider preserves every endpoint,
+      including when the node cards themselves remain stationary.
+- [ ] Resizing the application taller and shorter preserves every endpoint,
+      including when the node cards themselves remain stationary.
 - [ ] Horizontal and vertical graph scrolling does not detach lines, arrows or
       Barrier markers.
 - [ ] Closing and reopening the console preserves correct geometry.

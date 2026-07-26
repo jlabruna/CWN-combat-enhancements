@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.10.6
+
+- Fixed Network Console connection geometry shifting when the application was
+  resized but the automatically positioned node cards did not move.
+- The SVG now receives a live viewBox matching its rendered CSS-pixel size
+  before connection coordinates are calculated, preventing aspect-ratio
+  scaling and letterbox offsets.
+- Added a regression test confirming that expanding the SVG canvas cannot move
+  connections whose node cards remain fixed.
+
 ## 0.10.5
 
 - Fixed Network Console connections rendering away from their source and target

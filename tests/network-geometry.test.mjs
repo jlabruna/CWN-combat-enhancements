@@ -3,6 +3,7 @@ import test from "node:test";
 
 import {
   calculateConnectionGeometry,
+  svgPixelViewBox,
   viewportRectToSvgRect,
 } from "../scripts/network-console/network-geometry.mjs";
 
@@ -62,6 +63,28 @@ test("scrolling or moving the application does not change graph-local geometry",
   );
 
   assert.deepEqual(after, before);
+});
+
+test("expanding the SVG canvas does not move connections when nodes stay fixed", () => {
+  const source = rect(145, 180, 180, 110);
+  const target = rect(615, 390, 180, 110);
+  const standardSvg = rect(100, 80, 920, 500);
+  const expandedSvg = rect(100, 80, 1380, 750);
+
+  const standard = calculateConnectionGeometry(
+    source,
+    target,
+    standardSvg,
+    svgPixelViewBox(standardSvg),
+  );
+  const expanded = calculateConnectionGeometry(
+    source,
+    target,
+    expandedSvg,
+    svgPixelViewBox(expandedSvg),
+  );
+
+  assert.deepEqual(expanded, standard);
 });
 
 test("six-node branched graph keeps all five connections on their own cards", () => {
