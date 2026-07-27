@@ -45,6 +45,10 @@ classes so existing optional themes recognize these cards. Demon rolls use
 standard `.dice-roll`, `.dice-formula`, and `.dice-total` presentation nested
 inside module-owned `__roll` and `__roll-label` elements.
 
+Version 0.12.5 places the trusted result of `await Roll.render()` into each
+Demon roll slot. This preserves Foundry's `.dice-tooltip` details and native
+expand/collapse behavior rather than reproducing only the formula and total.
+
 ## Actor AC
 
 `module/data/actors/base-actor.mjs` defines:

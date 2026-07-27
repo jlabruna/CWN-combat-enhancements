@@ -2209,12 +2209,16 @@ async function postDemonActionCard({ network, node, demon, actionKey, target, ro
     targetName: target?.name ?? "",
   });
   const action = DEMON_ACTIONS[actionKey];
+  const checkRollHtml = roll ? await roll.render() : "";
+  const damageRollHtml = damageRoll ? await damageRoll.render() : "";
   const content = renderDemonActionChatCard({
     ...safe,
     checkTotal: roll?.total ?? "",
     checkFormula: roll?.formula ?? action.rollFormula ?? "",
+    checkRollHtml,
     damageTotal: damageRoll?.total ?? "",
     damageFormula: damageRoll?.formula ?? action.damageFormula ?? "",
+    damageRollHtml,
     automated: action.automated,
   });
   const data = {

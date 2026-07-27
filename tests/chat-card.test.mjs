@@ -72,6 +72,24 @@ test("Network Demon card publishes both modifiers and semantic rows", () => {
   assert.match(html, /class="dice-total">12</u);
 });
 
+test("Network Demon card retains trusted expandable Foundry Roll markup", () => {
+  const rollHtml = `
+    <div class="dice-roll">
+      <div class="dice-result">
+        <div class="dice-formula">2d6 + 1</div>
+        <div class="dice-tooltip">modifier details</div>
+        <h4 class="dice-total">8</h4>
+      </div>
+    </div>`;
+  const html = renderDemonActionChatCard({
+    checkTotal: 8,
+    checkFormula: "2d6 + 1",
+    checkRollHtml: rollHtml,
+  });
+  assert.match(html, /class="dice-tooltip">modifier details</u);
+  assert.match(html, /class="dice-total">8</u);
+});
+
 test("Demon damage card retains trusted structured flags and damage modifier", () => {
   const data = buildDemonDamageMessageData({
     moduleId: "cwn-combat-enhancements",

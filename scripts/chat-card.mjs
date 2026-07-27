@@ -36,7 +36,8 @@ function normalizedVariants(variants) {
 
 /**
  * Render the stable, module-owned semantic chat-card contract. All supplied
- * text is escaped; actionsMarkup is reserved for trusted module-owned controls.
+ * text is escaped; actionsMarkup and Roll-rendered HTML are reserved for
+ * trusted module-owned controls and Foundry Roll instances.
  */
 export function renderCwnCeChatCard({
   variants = [],
@@ -66,14 +67,14 @@ export function renderCwnCeChatCard({
     .map((roll) => `
       <section class="${CWN_CE_CHAT_CARD_CLASSES.roll}">
         <span class="${CWN_CE_CHAT_CARD_CLASSES.rollLabel}">${escapeChatCardText(roll.label)}</span>
-        <div class="roll">
+        ${roll.html || `<div class="roll">
           <div class="dice-roll">
             <div class="dice-result">
               <div class="dice-formula">${escapeChatCardText(roll.formula)}</div>
               <h4 class="dice-total">${escapeChatCardText(roll.total)}</h4>
             </div>
           </div>
-        </div>
+        </div>`}
       </section>`)
     .join("");
   const safeIcon = /^fa-(?:solid|regular|brands) fa-[a-z0-9-]+$/u.test(icon)
@@ -139,8 +140,10 @@ export function renderDemonActionChatCard({
   targetName = "",
   checkTotal = "",
   checkFormula = "",
+  checkRollHtml = "",
   damageTotal = "",
   damageFormula = "",
+  damageRollHtml = "",
   guidance = "",
   automated = false,
 } = {}) {
@@ -155,10 +158,20 @@ export function renderDemonActionChatCard({
     ],
     rolls: [
       ...(checkTotal
-        ? [{ label: "Check", total: checkTotal, formula: checkFormula }]
+        ? [{
+            label: "Check",
+            total: checkTotal,
+            formula: checkFormula,
+            html: checkRollHtml,
+          }]
         : []),
       ...(damageTotal
-        ? [{ label: "Potential damage", total: damageTotal, formula: damageFormula }]
+        ? [{
+            label: "Potential damage",
+            total: damageTotal,
+            formula: damageFormula,
+            html: damageRollHtml,
+          }]
         : []),
     ],
     result: automated

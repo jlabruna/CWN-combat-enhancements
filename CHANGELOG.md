@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.12.5
+
+- Replaced the static Demon check and potential-damage summaries with Foundry's
+  rendered Roll markup so both results expand to show dice and modifiers like
+  normal SWNR weapon rolls.
+- Added explicit neutral text and muted-text fallbacks for module cards when
+  CWN Interface Theme is disabled, while retaining the theme's own variables
+  whenever it is enabled.
+
 ## 0.12.4
 
 - Added the standard Foundry/SWNR `.chat-card.item-card` compatibility classes

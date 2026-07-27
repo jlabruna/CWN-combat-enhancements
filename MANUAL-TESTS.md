@@ -1,11 +1,23 @@
 # Foundry VTT v13 / SWNR 2.3.x manual test checklist
 
-Use a disposable world with CWN Combat Enhancements 0.12.4 enabled. Test with
+Use a disposable world with CWN Combat Enhancements 0.12.5 enabled. Test with
 actor-owned weapon and magazine Items. Give each magazine
 `type: "item"`, `system.uses.consumable: "count"`, positive
 `system.uses.value/max`, and a Magazine Family flag.
 
 Do not claim runtime success until these checks have been completed in Foundry.
+
+## v0.12.5 focused regression checks
+
+1. Run Stun Avatar and expand both Check and Potential damage.
+2. Confirm both rolls show their dice and modifiers like an SWNR weapon roll.
+3. Run Kill Avatar and confirm its check and damage rolls also expand.
+4. Disable CWN Interface Theme, reload Foundry, and create a reload card and a
+   Demon-action card.
+5. Confirm titles, labels, values, results, and guidance are readable rather
+   than pale gray.
+6. Re-enable CWN Interface Theme and confirm newly created cards still follow
+   the active theme.
 
 ## v0.12.4 focused regression checks
 
