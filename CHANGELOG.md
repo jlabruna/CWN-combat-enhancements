@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.12.2
+
+- Fixed the Add/Edit Demon dialog still growing beyond the viewport when
+  Additional Common Command Lines were expanded.
+- Locked the rendered dialog to its initial viewport-safe height and completed
+  the internal flex/overflow chain so the form body scrolls while its action
+  footer remains accessible.
+- Preserved the canonical awaited Demon save introduced in 0.12.1; its brief
+  save delay ensures Journal and player-projection persistence completes before
+  the dialog closes.
+
 ## 0.12.1
 
 - Fixed Add/Edit Demon silently ignoring submitted forms because the form uses

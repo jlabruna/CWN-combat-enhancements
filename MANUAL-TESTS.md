@@ -1,13 +1,13 @@
 # Foundry VTT v13 / SWNR 2.3.x manual test checklist
 
-Use a disposable world with CWN Combat Enhancements 0.12.1 enabled. Test with
+Use a disposable world with CWN Combat Enhancements 0.12.2 enabled. Test with
 actor-owned weapon and magazine Items. Give each magazine
 `type: "item"`, `system.uses.consumable: "count"`, positive
 `system.uses.value/max`, and a Magazine Family flag.
 
 Do not claim runtime success until these checks have been completed in Foundry.
 
-## Network Console v0.12.1 critical persistence and dialog patch
+## Network Console v0.12.2 persistence and dialog regression checks
 
 ### Demon persistence
 
