@@ -6,15 +6,21 @@ import {
   addCommonCommand,
   applyDemonDamage,
   canExecuteDemonAction,
+  commandCapacityState,
+  compatibleProgrammingProfiles,
   CWN_COMMON_COMMAND_LINES,
   CWN_DEMON_PROGRAMMING_PROFILES,
   CWN_DEMON_TEMPLATES,
   DEMON_ACTIONS,
+  demonClassCommandCapacity,
   demonClassView,
+  isProgrammingProfileCompatible,
   isTrustedDemonDamageFlag,
   nextAlertProgress,
+  profileCommandCount,
   profileCommands,
   publicDemonChatContext,
+  resolveProgrammingProfileSelection,
   validDemonDestinations,
   validateActionTarget,
   validateCommandLimit,
@@ -124,6 +130,94 @@ test("profile commands have stable keys, order and action mapping", () => {
   ]);
 });
 
+test("Tripwire capacity and every profile command count use central definitions", () => {
+  assert.equal(demonClassCommandCapacity("Tripwire"), 2);
+  assert.deepEqual(
+    Object.fromEntries(
+      Object.keys(CWN_DEMON_PROGRAMMING_PROFILES)
+        .map((profile) => [profile, profileCommandCount(profile)]),
+    ),
+    {
+      Bouncer: 2,
+      Patroller: 4,
+      Gatekeeper: 2,
+      Shieldbearer: 2,
+      Repairman: 3,
+      Trapper: 3,
+      Executioner: 4,
+      "Custom Programming": 0,
+    },
+  );
+});
+
+test("Tripwire accepts two-line profiles, hides larger profiles, and keeps Custom Programming", () => {
+  assert.equal(isProgrammingProfileCompatible("Tripwire", "Bouncer"), true);
+  assert.equal(isProgrammingProfileCompatible("Tripwire", "Patroller"), false);
+  assert.deepEqual(compatibleProgrammingProfiles("Tripwire"), [
+    "Bouncer",
+    "Gatekeeper",
+    "Shieldbearer",
+    "custom",
+  ]);
+});
+
+test("class changes preserve compatible profiles and safely reset incompatible profiles", () => {
+  assert.deepEqual(resolveProgrammingProfileSelection("Tripwire", "Bouncer"), {
+    profile: "Bouncer",
+    compatible: true,
+    changed: false,
+  });
+  assert.deepEqual(resolveProgrammingProfileSelection("Tripwire", "Patroller"), {
+    profile: "custom",
+    compatible: false,
+    changed: true,
+  });
+});
+
+test("Custom Demon uses a stored positive limit but invents no limit when configured as zero", () => {
+  assert.equal(demonClassCommandCapacity("custom", 6), 6);
+  assert.equal(demonClassCommandCapacity("custom", 0), null);
+  assert.equal(isProgrammingProfileCompatible("custom", "Executioner", 0), true);
+});
+
+test("live capacity counts profile, additional, and custom programming lines", () => {
+  assert.deepEqual(commandCapacityState({
+    classKey: "Mastiff",
+    programmingProfile: "Bouncer",
+    additionalCount: 1,
+    customCommandText: "First custom line\n\nSecond custom line",
+  }), {
+    count: 5,
+    limit: 4,
+    profileCount: 2,
+    additionalCount: 1,
+    customCount: 2,
+    exceeded: true,
+    atCapacity: false,
+    canAdd: false,
+    remaining: 0,
+  });
+});
+
+test("at-capacity state prevents additions and reducing lines restores eligibility", () => {
+  const demon = createDemonFromTemplate("Tripwire", "demon", "Bouncer");
+  const full = commandCapacityState(demon);
+  assert.deepEqual(
+    [full.count, full.limit, full.atCapacity, full.canAdd, full.exceeded],
+    [2, 2, true, false, false],
+  );
+  const rejected = addCommonCommand(demon, "reboot-device", "extra");
+  assert.deepEqual([rejected.added, rejected.reason], [false, "capacity"]);
+  const reduced = {
+    ...demon,
+    programmingProfile: "custom",
+    profileCommandLines: [],
+    customCommandLines: [{ text: "One line" }],
+  };
+  assert.equal(commandCapacityState(reduced).canAdd, true);
+  assert.equal(addCommonCommand(reduced, "reboot-device", "extra").added, true);
+});
+
 test("additional Common Command Lines persist and duplicates are rejected", () => {
   let demon = createDemonFromTemplate("Hydra", "demon", "Bouncer");
   let result = addCommonCommand(demon, "reboot-device", "extra");
@@ -136,10 +230,35 @@ test("additional Common Command Lines persist and duplicates are rejected", () =
 
 test("command limits are reported without truncating lines", () => {
   let demon = createDemonFromTemplate("Tripwire", "demon", "Bouncer");
-  demon = addCommonCommand(demon, "reboot-device", "extra").demon;
+  demon = addCommonCommand(
+    demon,
+    "reboot-device",
+    "extra",
+    { allowOverCapacity: true },
+  ).demon;
   const result = validateCommandLimit(demon);
   assert.deepEqual(result, { count: 3, limit: 2, exceeded: true });
   assert.equal(demon.additionalCommandLines.length, 1);
+});
+
+test("normalization preserves existing over-capacity Demon commands without truncation", () => {
+  const source = networkWithDemon({
+    classKey: "Tripwire",
+    programmingProfile: "Patroller",
+    profileCommandLines: profileCommands("Patroller", "legacy"),
+    additionalCommandLines: [{
+      id: "extra",
+      key: "send-message",
+      priority: 5,
+      text: "Preserved extra",
+      actionKey: "send-message",
+      sourceType: "common",
+    }],
+  });
+  const normalized = normalizeNetwork(source).nodes[0].demons[0];
+  assert.equal(normalized.profileCommandLines.length, 4);
+  assert.equal(normalized.additionalCommandLines.length, 1);
+  assert.equal(commandCapacityState(normalized).exceeded, true);
 });
 
 test("legacy Verb and Subject migrate to a preserved legacy command", () => {

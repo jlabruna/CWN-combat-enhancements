@@ -838,6 +838,41 @@
   color: var(--cwnce-net-magenta);
 }
 
+.cwnce-profile-capacity-note,
+.cwnce-profile-change-message,
+.cwnce-command-capacity {
+  margin: 0;
+}
+
+.cwnce-profile-change-message,
+.cwnce-command-capacity.is-at-capacity {
+  color: var(--cwnce-net-orange);
+  font-weight: 700;
+}
+
+.cwnce-command-capacity.is-over-capacity {
+  color: var(--cwnce-net-red);
+  font-weight: 800;
+}
+
+.cwnce-command-choice.is-capacity-disabled {
+  opacity: 0.55;
+}
+
+.cwnce-command-choice.is-capacity-disabled span::after {
+  content: " — capacity reached";
+  font-style: italic;
+}
+
+.cwnce-command-choice.is-profile-duplicate {
+  opacity: 0.55;
+}
+
+.cwnce-command-choice.is-profile-duplicate span::after {
+  content: " — already supplied by profile";
+  font-style: italic;
+}
+
 .cwnce-dialog-command-list ol {
   display: grid;
   gap: 0.25rem;
@@ -851,11 +886,6 @@
   gap: 0.4rem;
   align-items: start;
   margin: 0.25rem 0;
-}
-
-.cwnce-demon-chat-card {
-  border-left: 3px solid var(--cwnce-net-magenta, #ff3fa4);
-  padding: 0.5rem 0.65rem;
 }
 
 @media (max-width: 620px) {

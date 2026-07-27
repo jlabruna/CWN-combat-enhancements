@@ -30,6 +30,16 @@ companion module therefore reads the actor/item IDs from the card during
 and the targets selected at roll time. Its `renderChatMessage` hook then appends
 the result block to the existing card.
 
+Version 0.12.3 adds the module-owned `scripts/chat-card.mjs` renderer for exact
+reload and Network Console/Demon messages. It emits the stable wrapper
+`.cwn-ce-chat-card` plus purpose modifiers `--reload`, `--network`, `--demon`,
+and `--damage`, and semantic `__header`, `__title`, `__subtitle`, `__body`,
+`__row`, `__label`, `__value`, `__result`, `__guidance`, and `__actions`
+elements. User-controlled text is escaped; only module-owned action markup is
+accepted as trusted HTML. The scoped defaults live in
+`styles/cwn-combat-enhancements.css`. Optional themes own any suite-specific
+overrides and must not be required by this module.
+
 ## Actor AC
 
 `module/data/actors/base-actor.mjs` defines:
@@ -196,6 +206,16 @@ movement, fragging and reboot boundaries come from the CWN rules rather than an
 SWNR Demon Actor model. SWNR does not provide a persistent Demon Actor or
 avatar-node tracker, so opposed player results, active hostile programs,
 Pursue destinations, and physical effects remain GM-adjudicated.
+
+Version 0.12.3 centralizes Demon profile counts, class capacities,
+compatibility, and total configured command counts in
+`scripts/network-console/demon-rules.mjs`. Standard profiles are compatible
+when their profile command count is less than or equal to the standard class
+line limit. Custom Programming is always selectable, but its configured lines
+still count against a fixed class limit. A Custom Demon uses a positive stored
+`lineLimit` when present; zero or absent retains the existing no-fixed-limit
+behavior. Normalization preserves incompatible legacy data for explicit GM
+correction rather than truncating it.
 
 ## Extension boundary
 

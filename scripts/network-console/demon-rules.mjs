@@ -80,6 +80,71 @@ export const CWN_DEMON_PROGRAMMING_PROFILES = Object.freeze({
   "Custom Programming": [],
 });
 
+export function programmingProfileName(profile) {
+  return profile === CUSTOM_PROGRAMMING_PROFILE
+    ? "Custom Programming"
+    : String(profile || "");
+}
+
+export function programmingProfileValue(profileName) {
+  return profileName === "Custom Programming"
+    ? CUSTOM_PROGRAMMING_PROFILE
+    : String(profileName || "");
+}
+
+export function profileCommandCount(profile) {
+  return (CWN_DEMON_PROGRAMMING_PROFILES[programmingProfileName(profile)] ?? []).length;
+}
+
+/**
+ * Return a fixed command-line capacity, or null when the current schema defines
+ * no fixed limit. Standard classes always use their source-backed template.
+ */
+export function demonClassCommandCapacity(classKey, configuredLineLimit = 0) {
+  const standardLimit = Number(CWN_DEMON_TEMPLATES[classKey]?.lines);
+  if (Number.isInteger(standardLimit) && standardLimit >= 0) return standardLimit;
+  if (classKey !== CUSTOM_DEMON_CLASS) return null;
+  const customLimit = Number(configuredLineLimit);
+  return Number.isInteger(customLimit) && customLimit > 0 ? customLimit : null;
+}
+
+export function isProgrammingProfileCompatible(
+  classKey,
+  profile,
+  configuredLineLimit = 0,
+) {
+  if (profile === CUSTOM_PROGRAMMING_PROFILE) return true;
+  if (!Object.hasOwn(CWN_DEMON_PROGRAMMING_PROFILES, programmingProfileName(profile))) {
+    return false;
+  }
+  const limit = demonClassCommandCapacity(classKey, configuredLineLimit);
+  return limit == null || profileCommandCount(profile) <= limit;
+}
+
+export function compatibleProgrammingProfiles(classKey, configuredLineLimit = 0) {
+  return Object.keys(CWN_DEMON_PROGRAMMING_PROFILES)
+    .map(programmingProfileValue)
+    .filter((profile) =>
+      isProgrammingProfileCompatible(classKey, profile, configuredLineLimit));
+}
+
+export function resolveProgrammingProfileSelection(
+  classKey,
+  currentProfile,
+  configuredLineLimit = 0,
+) {
+  const compatible = isProgrammingProfileCompatible(
+    classKey,
+    currentProfile,
+    configuredLineLimit,
+  );
+  return {
+    profile: compatible ? currentProfile : CUSTOM_PROGRAMMING_PROFILE,
+    compatible,
+    changed: !compatible,
+  };
+}
+
 export const DEMON_ACTIONS = Object.freeze({
   "alert-network": {
     label: "Alert the Network",
@@ -221,28 +286,56 @@ export function commandFromCatalog(key, sourceType, priority, id = key) {
 }
 
 export function profileCommands(profile, demonId = "demon") {
-  const profileName = profile === CUSTOM_PROGRAMMING_PROFILE
-    ? "Custom Programming"
-    : profile;
+  const profileName = programmingProfileName(profile);
   return (CWN_DEMON_PROGRAMMING_PROFILES[profileName] ?? [])
     .map((key, index) =>
       commandFromCatalog(key, "profile", index + 1, `${demonId}-profile-${key}`));
 }
 
-export function validateCommandLimit(demon) {
-  const count = [
-    ...(demon?.profileCommandLines ?? []),
-    ...(demon?.additionalCommandLines ?? []),
-    ...(demon?.customCommandLines ?? []),
-  ].length;
+export function commandCapacityState(demon = {}) {
+  const profileCount = Array.isArray(demon.profileCommandLines)
+    ? demon.profileCommandLines.length
+    : profileCommandCount(demon.programmingProfile);
+  const additionalCount = Array.isArray(demon.additionalCommandLines)
+    ? demon.additionalCommandLines.length
+    : Number(demon.additionalCount) || 0;
+  const customCount = Array.isArray(demon.customCommandLines)
+    ? demon.customCommandLines.length
+    : typeof demon.customCommandText === "string"
+      ? demon.customCommandText.split(/\r?\n/u).filter((line) => line.trim()).length
+      : Number(demon.customCount) || 0;
+  const count = profileCount + additionalCount + customCount;
+  const limit = demonClassCommandCapacity(demon.classKey, demon.lineLimit);
+  const exceeded = limit != null && count > limit;
+  const atCapacity = limit != null && count === limit;
   return {
     count,
-    limit: Math.max(0, Number(demon?.lineLimit) || 0),
-    exceeded: Number(demon?.lineLimit) > 0 && count > Number(demon.lineLimit),
+    limit,
+    profileCount,
+    additionalCount,
+    customCount,
+    exceeded,
+    atCapacity,
+    canAdd: limit == null || count < limit,
+    remaining: limit == null ? null : Math.max(0, limit - count),
   };
 }
 
-export function addCommonCommand(demon, key, id = key) {
+export function validateCommandLimit(demon) {
+  const state = commandCapacityState(demon);
+  return {
+    count: state.count,
+    limit: state.limit ?? 0,
+    exceeded: state.exceeded,
+  };
+}
+
+export function addCommonCommand(
+  demon,
+  key,
+  id = key,
+  { allowOverCapacity = false } = {},
+) {
   if (!CWN_COMMON_COMMAND_LINES[key] || CWN_COMMON_COMMAND_LINES[key].profileOnly) {
     return { demon, added: false, reason: "invalid" };
   }
@@ -252,6 +345,15 @@ export function addCommonCommand(demon, key, id = key) {
   ];
   if (all.some((command) => command.key === key)) {
     return { demon, added: false, reason: "duplicate" };
+  }
+  const currentCapacity = commandCapacityState(demon);
+  if (!allowOverCapacity && !currentCapacity.canAdd) {
+    return {
+      demon,
+      added: false,
+      reason: "capacity",
+      warning: currentCapacity,
+    };
   }
   const copy = structuredClone(demon);
   copy.additionalCommandLines ??= [];

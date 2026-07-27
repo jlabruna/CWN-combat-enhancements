@@ -23,20 +23,32 @@ import {
   addCommonCommand,
   applyDemonDamage,
   canExecuteDemonAction,
+  commandCapacityState,
+  compatibleProgrammingProfiles,
   CUSTOM_DEMON_CLASS,
   CUSTOM_PROGRAMMING_PROFILE,
   CWN_COMMON_COMMAND_LINES,
   CWN_DEMON_PROGRAMMING_PROFILES,
   DEMON_ACTIONS,
+  demonClassCommandCapacity,
+  isProgrammingProfileCompatible,
   nextAlertProgress,
+  profileCommandCount,
   profileCommands,
+  programmingProfileName,
+  programmingProfileValue,
   publicDemonChatContext,
+  resolveProgrammingProfileSelection,
   setDemonHp,
   validDemonDestinations,
   validateActionTarget,
-  validateCommandLimit,
   isTrustedDemonDamageFlag,
 } from "./demon-rules.mjs";
+import {
+  buildDemonDamageMessageData,
+  renderDemonActionChatCard,
+  renderDemonDamageChatCard,
+} from "../chat-card.mjs";
 
 const MODULE_ID = "cwn-combat-enhancements";
 const SOCKET_NAME = `module.${MODULE_ID}`;
@@ -200,7 +212,9 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
   button.dataset.cwnceApplyDemonDamage = message.id;
   button.innerHTML = '<i class="fa-solid fa-ghost"></i> Apply Damage to Demon';
   button.addEventListener("click", () => applyDamageFromChatMessage(message));
-  root.querySelector(".message-content")?.append(button);
+  const actions = root.querySelector(".cwn-ce-chat-card__actions")
+    ?? root.querySelector(".message-content");
+  actions?.append(button);
 });
 
 function isNetworkConsoleEnabled() {
@@ -2195,16 +2209,14 @@ async function postDemonActionCard({ network, node, demon, actionKey, target, ro
     targetName: target?.name ?? "",
   });
   const action = DEMON_ACTIONS[actionKey];
-  const escaped = (value) => foundry.utils.escapeHTML(String(value ?? ""));
-  const content = `
-    <article class="cwnce-demon-chat-card">
-      <header><i class="fa-solid fa-ghost"></i> <strong>${escaped(safe.demonName)}</strong> — ${escaped(safe.actionName)}</header>
-      <p>${escaped(safe.networkName)} · ${escaped(safe.nodeName)}${safe.targetName ? ` · Target: ${escaped(safe.targetName)}` : ""}</p>
-      ${roll ? `<p>Check: <strong>${roll.total}</strong> (${escaped(action.rollFormula)})</p>` : "<p>No roll required.</p>"}
-      ${damageRoll ? `<p>Potential damage: <strong>${damageRoll.total}</strong> (${escaped(action.damageFormula)})</p>` : ""}
-      <p>${escaped(safe.guidance)}</p>
-      <small>${action.automated ? "Supported state change automated." : "GM adjudication required."}</small>
-    </article>`;
+  const content = renderDemonActionChatCard({
+    ...safe,
+    check: roll ? `${roll.total} (${action.rollFormula})` : "",
+    potentialDamage: damageRoll
+      ? `${damageRoll.total} (${action.damageFormula})`
+      : "",
+    automated: action.automated,
+  });
   const data = {
     content,
     rolls: [roll, damageRoll].filter(Boolean),
@@ -2219,28 +2231,24 @@ async function postDemonActionCard({ network, node, demon, actionKey, target, ro
 
 async function postDemonDamageResult(name, damage) {
   await ChatMessage.create({
-    content: `<p><i class="fa-solid fa-ghost"></i> ${foundry.utils.escapeHTML(name)} takes <strong>${damage}</strong> damage.</p>`,
+    content: renderDemonDamageChatCard({
+      title: "Demon Damage Applied",
+      demonName: name,
+      damage,
+    }),
     whisper: ChatMessage.getWhisperRecipients("GM").map((user) => user.id),
   });
 }
 
 async function createDemonDamageCard({ damage, networkId = "", nodeId = "", demonId = "", label = "Hacker program damage" } = {}) {
-  const amount = Math.max(0, Math.trunc(Number(damage) || 0));
-  return ChatMessage.create({
-    content: `<p>${foundry.utils.escapeHTML(label)}: <strong>${amount}</strong></p>`,
-    flags: {
-      [MODULE_ID]: {
-        demonDamage: {
-          kind: "demon-damage",
-          producer: MODULE_ID,
-          damage: amount,
-          networkId,
-          nodeId,
-          demonId,
-        },
-      },
-    },
-  });
+  return ChatMessage.create(buildDemonDamageMessageData({
+    moduleId: MODULE_ID,
+    damage,
+    networkId,
+    nodeId,
+    demonId,
+    label,
+  }));
 }
 
 async function applyDamageFromChatMessage(message) {
@@ -2346,7 +2354,9 @@ function demonFromForm(data, id, existing = null) {
       currentHp,
       maxHp,
       skillBonus,
-      lineLimit: 0,
+      lineLimit: existing?.classKey === CUSTOM_DEMON_CLASS
+        ? Math.max(0, Number(existing.lineLimit) || 0)
+        : 0,
       cost: 0,
       state: currentHp === 0 ? "fragged" : "active",
     };
@@ -2370,7 +2380,14 @@ function demonFromForm(data, id, existing = null) {
     ? data.additionalKeys
     : (data.additionalKeys ? [data.additionalKeys] : []);
   for (const key of selectedKeys) {
-    const result = addCommonCommand(demon, key, foundry.utils.randomID());
+    // Retain every submitted line in the candidate so final centralized
+    // validation can reject over-capacity data without silently dropping it.
+    const result = addCommonCommand(
+      demon,
+      key,
+      foundry.utils.randomID(),
+      { allowOverCapacity: true },
+    );
     if (result.added) {
       demon = result.demon;
       const command = demon.additionalCommandLines.at(-1);
@@ -2378,28 +2395,43 @@ function demonFromForm(data, id, existing = null) {
       if (Number.isInteger(requestedPriority) && requestedPriority > 0) {
         command.priority = requestedPriority;
       }
+    } else if (result.reason === "duplicate") {
+      // A migrated Demon may contain an Additional line that is now also
+      // supplied by its selected profile. Keep that checked legacy line in the
+      // submitted candidate so the user can remove it explicitly; never
+      // normalize it away as a side effect of opening and saving the dialog.
+      const preserved = existing?.additionalCommandLines?.find(
+        (command) => command.key === key,
+      );
+      if (preserved) {
+        const command = foundry.utils.deepClone(preserved);
+        const requestedPriority = Number(data[`priority.${key}`]);
+        if (Number.isInteger(requestedPriority) && requestedPriority > 0) {
+          command.priority = requestedPriority;
+        }
+        demon.additionalCommandLines.push(command);
+      }
     }
   }
-  demon.customCommandLines = profile === CUSTOM_PROGRAMMING_PROFILE
-    ? String(data.customCommands || "")
-        .split(/\r?\n/)
-        .map((line) => line.trim())
-        .filter(Boolean)
-        .map((line, index) => ({
-          id: foundry.utils.randomID(),
-          key: "",
-          priority: demon.profileCommandLines.length + demon.additionalCommandLines.length + index + 1,
-          text: line,
-          actionKey: "",
-          sourceType: "custom",
-        }))
-    : [];
+  demon.customCommandLines = String(data.customCommands || "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line, index) => ({
+      id: foundry.utils.randomID(),
+      key: "",
+      priority: demon.profileCommandLines.length + demon.additionalCommandLines.length + index + 1,
+      text: line,
+      actionKey: "",
+      sourceType: "custom",
+    }));
   demon.revealed = data.revealed === "on";
   demon.notes = String(data.notes || "").trim();
-  const limit = validateCommandLimit(demon);
-  if (limit.exceeded) {
+  const capacity = commandCapacityState(demon);
+  if (capacity.exceeded) {
+    const excess = capacity.count - capacity.limit;
     ui.notifications.warn(
-      `${classKey} supports ${limit.limit} command lines, but ${limit.count} are configured. Remove a line before saving.`,
+      `${classKey} supports ${capacity.limit} command lines, but ${capacity.count} are configured. Remove ${excess} command line${excess === 1 ? "" : "s"} before saving.`,
     );
     return null;
   }
@@ -2429,14 +2461,14 @@ function demonDialogContent(demon = {}, nodeId = "") {
     .filter(([, command]) => !command.profileOnly)
     .map(([key, command]) => `
       <label class="cwnce-command-choice">
-        <input type="checkbox" name="additionalKeys" value="${key}"${selectedAdditional.has(key) ? " checked" : ""}>
+        <input type="checkbox" name="additionalKeys" value="${key}" data-common-command${selectedAdditional.has(key) ? " checked" : ""}>
         <span>${escaped(command.text)}</span>
         <input type="number" min="1" step="1" name="priority.${key}" value="${additionalPriorities.get(key) ?? ""}" placeholder="Priority" aria-label="Priority for ${escaped(command.text)}">
       </label>`)
     .join("");
   const customCommands = (demon.customCommandLines ?? []).map((command) => command.text).join("\n");
   return `
-    <div class="cwnce-demon-form" data-demon-form data-node-id="${escaped(nodeId)}" data-demon-id="${escaped(demon.id)}">
+    <div class="cwnce-demon-form" data-demon-form data-node-id="${escaped(nodeId)}" data-demon-id="${escaped(demon.id)}" data-line-limit="${Math.max(0, Number(demon.lineLimit) || 0)}" data-saved-profile="${escaped(profile)}">
       <p class="hint">Standard class statistics are fixed to the CWN Demon table. Encounter HP is managed from the node inspector.</p>
       <div class="form-group"><label>Demon Class</label><select name="classKey" data-demon-class required>${classOptions}</select></div>
       <div class="form-group"><label>Name</label><input name="name" value="${escaped(demon.name)}" placeholder="Defaults to class name" required></div>
@@ -2447,6 +2479,9 @@ function demonDialogContent(demon = {}, nodeId = "") {
         <div class="form-group"><label>Skill Bonus</label><input type="number" min="-20" max="20" name="skillBonus" value="${demon.skillBonus ?? 0}"></div>
       </div>
       <div class="form-group"><label>Programming Profile</label><select name="programmingProfile" data-demon-profile>${profileOptions}</select></div>
+      <p class="hint cwnce-profile-capacity-note" data-profile-capacity-note></p>
+      <p class="hint cwnce-profile-change-message" data-profile-change-message hidden></p>
+      <p class="cwnce-command-capacity" data-command-capacity aria-live="polite"></p>
       <section class="cwnce-dialog-command-list">
         <h3>Profile Command Lines</h3>
         <ol data-profile-preview></ol>
@@ -2455,7 +2490,7 @@ function demonDialogContent(demon = {}, nodeId = "") {
         <summary>Additional Common Command Lines</summary>
         ${commonOptions}
       </details>
-      <div class="form-group stacked" data-custom-commands><label>Custom Programming Lines</label><textarea name="customCommands" rows="4">${escaped(customCommands)}</textarea></div>
+      <div class="form-group stacked" data-custom-commands><label>Custom Programming Lines</label><textarea name="customCommands" rows="4" data-custom-command-text>${escaped(customCommands)}</textarea></div>
       <div class="form-group"><label>Revealed to Players</label><input type="checkbox" name="revealed"${demon.revealed ? " checked" : ""}></div>
       <div class="form-group stacked"><label>Private GM Notes</label><textarea name="notes" rows="3">${escaped(demon.notes)}</textarea></div>
     </div>
@@ -2480,8 +2515,72 @@ function initializeDemonDialog(...args) {
   }
   const classSelect = form.querySelector("[data-demon-class]");
   const profileSelect = form.querySelector("[data-demon-profile]");
+  const capacityNote = form.querySelector("[data-profile-capacity-note]");
+  const changeMessage = form.querySelector("[data-profile-change-message]");
+  const capacityIndicator = form.querySelector("[data-command-capacity]");
+  const customCommandGroup = form.querySelector("[data-custom-commands]");
+  const customCommandText = form.querySelector("[data-custom-command-text]");
+  const commonCommandInputs = [...form.querySelectorAll("[data-common-command]")];
+  const saveButton = root.querySelector('button[data-action="save"]');
+  const storedCustomLimit = Math.max(0, Number(form.dataset.lineLimit) || 0);
   let previousClass = classSelect.value;
-  const refresh = () => {
+
+  const configuredLimit = (classKey) =>
+    classKey === CUSTOM_DEMON_CLASS ? storedCustomLimit : 0;
+
+  const setProfileOptions = ({ classChanged = false } = {}) => {
+    const classKey = classSelect.value;
+    const currentProfile = profileSelect.value
+      || form.dataset.savedProfile
+      || CUSTOM_PROGRAMMING_PROFILE;
+    const lineLimit = configuredLimit(classKey);
+    const selection = resolveProgrammingProfileSelection(
+      classKey,
+      currentProfile,
+      lineLimit,
+    );
+    const allowedProfiles = new Set(
+      compatibleProgrammingProfiles(classKey, lineLimit),
+    );
+    const preserveExistingInvalid = !classChanged && !selection.compatible;
+    profileSelect.replaceChildren();
+    for (const profileName of Object.keys(CWN_DEMON_PROGRAMMING_PROFILES)) {
+      const value = programmingProfileValue(profileName);
+      if (!allowedProfiles.has(value) && !(preserveExistingInvalid && value === currentProfile)) {
+        continue;
+      }
+      const option = document.createElement("option");
+      option.value = value;
+      const count = profileCommandCount(value);
+      option.textContent = value === CUSTOM_PROGRAMMING_PROFILE
+        ? "Custom Programming"
+        : `${profileName} (${count} command line${count === 1 ? "" : "s"})`;
+      if (!allowedProfiles.has(value)) {
+        const limit = demonClassCommandCapacity(classKey, lineLimit);
+        option.textContent += ` — incompatible with ${limit}`;
+        option.dataset.incompatible = "true";
+      }
+      profileSelect.append(option);
+    }
+    profileSelect.value = selection.profile;
+
+    if (classChanged && selection.changed) {
+      changeMessage.textContent =
+        `${programmingProfileName(currentProfile)} requires ${profileCommandCount(currentProfile)} command lines and is incompatible with ${classKey}. Custom Programming was selected instead; existing Additional Common Command Lines were retained.`;
+      changeMessage.hidden = false;
+    } else if (preserveExistingInvalid) {
+      const limit = demonClassCommandCapacity(classKey, lineLimit);
+      changeMessage.textContent =
+        `This saved Demon uses ${programmingProfileName(currentProfile)}, which requires ${profileCommandCount(currentProfile)} command lines but ${classKey} supports ${limit}. Existing data is preserved; select a compatible profile before saving.`;
+      changeMessage.hidden = false;
+      profileSelect.value = currentProfile;
+    } else {
+      changeMessage.textContent = "";
+      changeMessage.hidden = true;
+    }
+  };
+
+  const refresh = ({ classChanged = false, rebuildProfiles = false } = {}) => {
     const classKey = classSelect.value;
     const customClass = classKey === CUSTOM_DEMON_CLASS;
     form.querySelector("[data-standard-summary]").hidden = customClass;
@@ -2490,10 +2589,9 @@ function initializeDemonDialog(...args) {
     form.querySelector("[data-class-summary]").textContent = template
       ? `HP ${template.hp}/${template.hp} · Skill +${template.skill} · ${template.lines} command lines`
       : "Custom statistics";
+    if (rebuildProfiles) setProfileOptions({ classChanged });
     const profile = profileSelect.value;
-    const profileName = profile === CUSTOM_PROGRAMMING_PROFILE
-      ? "Custom Programming"
-      : profile;
+    const profileName = programmingProfileName(profile);
     const preview = form.querySelector("[data-profile-preview]");
     preview.replaceChildren();
     for (const key of CWN_DEMON_PROGRAMMING_PROFILES[profileName] ?? []) {
@@ -2522,8 +2620,50 @@ function initializeDemonDialog(...args) {
       item.textContent = "No profile lines; enter controlled custom programming below.";
       preview.append(item);
     }
-    form.querySelector("[data-custom-commands]").hidden =
-      profile !== CUSTOM_PROGRAMMING_PROFILE;
+    const hasPreservedCustomLines = Boolean(customCommandText.value.trim());
+    customCommandGroup.hidden =
+      profile !== CUSTOM_PROGRAMMING_PROFILE && !hasPreservedCustomLines;
+
+    const lineLimit = configuredLimit(classKey);
+    const capacity = commandCapacityState({
+      classKey,
+      lineLimit,
+      programmingProfile: profile,
+      additionalCount: commonCommandInputs.filter((input) => input.checked).length,
+      customCommandText: customCommandText.value,
+    });
+    const fixedLimit = capacity.limit;
+    capacityNote.textContent = fixedLimit == null
+      ? `${classKey === CUSTOM_DEMON_CLASS ? "Custom Demon" : classKey} has no fixed command-line limit in the current data.`
+      : `${classKey} supports ${fixedLimit} command lines. Profiles requiring more than ${fixedLimit} lines are hidden.`;
+    capacityIndicator.textContent = fixedLimit == null
+      ? `Command lines: ${capacity.count} / no fixed limit`
+      : `Command lines: ${capacity.count} / ${fixedLimit}${capacity.exceeded ? ` — over capacity; remove ${capacity.count - fixedLimit}` : ""}`;
+    capacityIndicator.classList.toggle("is-at-capacity", capacity.atCapacity);
+    capacityIndicator.classList.toggle("is-over-capacity", capacity.exceeded);
+
+    const profileKeys = new Set(
+      CWN_DEMON_PROGRAMMING_PROFILES[profileName] ?? [],
+    );
+    for (const input of commonCommandInputs) {
+      const duplicateProfileLine = profileKeys.has(input.value);
+      input.disabled = !input.checked && (duplicateProfileLine || !capacity.canAdd);
+      const choice = input.closest(".cwnce-command-choice");
+      choice?.classList.toggle(
+        "is-capacity-disabled",
+        input.disabled && !duplicateProfileLine,
+      );
+      choice?.classList.toggle(
+        "is-profile-duplicate",
+        input.disabled && duplicateProfileLine,
+      );
+    }
+    const profileCompatible = isProgrammingProfileCompatible(
+      classKey,
+      profile,
+      lineLimit,
+    );
+    if (saveButton) saveButton.disabled = capacity.exceeded || !profileCompatible;
   };
   classSelect.addEventListener("change", () => {
     if (previousClass === CUSTOM_DEMON_CLASS &&
@@ -2533,10 +2673,14 @@ function initializeDemonDialog(...args) {
       return;
     }
     previousClass = classSelect.value;
-    refresh();
+    refresh({ classChanged: true, rebuildProfiles: true });
   });
-  profileSelect.addEventListener("change", refresh);
-  refresh();
+  profileSelect.addEventListener("change", () => refresh());
+  for (const input of commonCommandInputs) {
+    input.addEventListener("change", () => refresh());
+  }
+  customCommandText.addEventListener("input", () => refresh());
+  refresh({ rebuildProfiles: true });
 }
 
 function watchdogFromForm(data, id) {

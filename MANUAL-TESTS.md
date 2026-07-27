@@ -1,11 +1,64 @@
 # Foundry VTT v13 / SWNR 2.3.x manual test checklist
 
-Use a disposable world with CWN Combat Enhancements 0.12.2 enabled. Test with
+Use a disposable world with CWN Combat Enhancements 0.12.3 enabled. Test with
 actor-owned weapon and magazine Items. Give each magazine
 `type: "item"`, `system.uses.consumable: "count"`, positive
 `system.uses.value/max`, and a Magazine Family flag.
 
 Do not claim runtime success until these checks have been completed in Foundry.
+
+## v0.12.3 Programming Profile compatibility
+
+1. Select Tripwire.
+2. Confirm profiles requiring more than 2 lines are absent.
+3. Confirm compatible two-line profiles remain available.
+4. Confirm Custom Programming remains available.
+5. Select Mastiff and confirm additional compatible profiles appear.
+6. Select Mastiff with Patroller, then change to Tripwire.
+7. Confirm Patroller is not silently retained.
+8. Confirm an explanatory message appears.
+9. Add Common Command Lines until capacity is reached.
+10. Confirm further additions are disabled.
+11. Confirm the live count includes profile, Additional Common, and non-empty
+    Custom Programming lines.
+12. Open an existing over-capacity Demon.
+13. Confirm its existing profile and command data remain visible.
+14. Confirm a clear over-capacity warning states how many lines to remove.
+15. Confirm saving is blocked until the count and profile are valid.
+16. Confirm the dialog remains viewport-safe with the optional section expanded.
+17. Save a valid Demon, reopen it, reload Foundry, and confirm it persists.
+
+## v0.12.3 theme-compatible chat cards
+
+With CWN Interface Theme enabled:
+
+1. Reload a weapon and confirm the reload card fits the themed chat log.
+2. Reload from a partial magazine.
+3. Reload from a magazine that is depleted and deleted.
+4. Test automatic compatible-magazine selection.
+5. Confirm rounds, weapon ammunition, magazine remainder, retention/deletion,
+   and automatic-selection text are correct.
+6. Run Stun Avatar, Paralyze Avatar, and Kill Avatar.
+7. Run Alert the Network and Send Message.
+8. Produce a hidden Demon action and confirm only `Hidden Demon` appears.
+9. Confirm hidden node, network, private command, and GM-note data do not leak.
+10. Produce a Demon damage card and use Apply Damage to Demon.
+11. Confirm HP and Fragged state update correctly.
+12. Compare reload, Demon action, and damage cards with an ordinary themed
+    attack card.
+13. Confirm no pale/default unthemed card background remains unless supplied by
+    the active theme.
+
+With CWN Interface Theme disabled:
+
+14. Reload a weapon and run a Demon action.
+15. Confirm cards, text, borders, and buttons remain readable and usable.
+
+After re-enabling CWN Interface Theme:
+
+16. Confirm ordinary attack cards remain unchanged.
+17. Confirm module chat cards remain styled and no relevant red console errors
+    appear.
 
 ## Network Console v0.12.2 persistence and dialog regression checks
 

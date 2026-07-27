@@ -63,7 +63,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.12.2.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.12.3.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -176,6 +176,14 @@ Gatekeeper, Shieldbearer, Repairman, Trapper, Executioner, and Custom
 Programming profiles. Profile commands are shown in priority order; GMs can add
 controlled Common Command Lines without losing profile defaults.
 
+The Programming Profile selector filters out standard profiles whose supplied
+command count exceeds the selected standard class's fixed line capacity.
+Custom Programming always remains available. A live indicator counts profile,
+Additional Common, and non-empty Custom Programming lines. At capacity, unused
+Common lines are disabled; over capacity, Save is blocked until enough lines
+are removed. Existing incompatible or over-capacity Demons still open with all
+stored data visible and are never silently truncated.
+
 Expand a Demon in the right inspector to change HP/state, reveal it, apply
 damage, restore it, or trigger its rule-aware command buttons. Supported
 actions include confirmed Alert, Send Message, Reboot, and Move workflows;
@@ -220,6 +228,34 @@ The encounter controls remain deliberately GM-directed. The console does not:
 
 The saved network schema already reserves an authorization list so
 designated-player sharing can be added without redesigning saved networks.
+
+## Theme-compatible module chat cards
+
+Exact reload, Network Console Demon action, and Demon damage messages use one
+escaped semantic renderer. CWN Combat Enhancements owns and provides neutral
+defaults for this stable class contract:
+
+- `.cwn-ce-chat-card`
+- `.cwn-ce-chat-card--reload`
+- `.cwn-ce-chat-card--network`
+- `.cwn-ce-chat-card--demon`
+- `.cwn-ce-chat-card--damage`
+- `.cwn-ce-chat-card__header`
+- `.cwn-ce-chat-card__title`
+- `.cwn-ce-chat-card__subtitle`
+- `.cwn-ce-chat-card__body`
+- `.cwn-ce-chat-card__row`
+- `.cwn-ce-chat-card__label`
+- `.cwn-ce-chat-card__value`
+- `.cwn-ce-chat-card__result`
+- `.cwn-ce-chat-card__guidance`
+- `.cwn-ce-chat-card__actions`
+
+Optional themes may override `--cwn-ce-card-bg`, `--cwn-ce-card-text`,
+`--cwn-ce-card-muted`, `--cwn-ce-card-border`, `--cwn-ce-card-accent`,
+`--cwn-ce-card-success`, `--cwn-ce-card-warning`, and
+`--cwn-ce-card-danger`. CWN Interface Theme is not required. These scoped
+defaults do not alter normal SWNR attack cards.
 
 ## Known limitations
 
@@ -280,6 +316,13 @@ target for manual resolution and does not apply damage automatically.
   buttons remain available for GM corrections or exceptional rules.
 
 ## Changes
+
+### 0.12.3
+
+- Programming Profiles now reflect the selected Demon class's command-line
+  capacity, with live totals and safe handling of incompatible legacy data.
+- Exact reload and Network Console/Demon messages now share stable semantic,
+  theme-compatible chat-card markup and neutral module-owned styling.
 
 ### 0.12.2
 

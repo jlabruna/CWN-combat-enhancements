@@ -15,6 +15,7 @@ import {
   resolveWeaponFamily,
   transferMagazineRounds,
 } from "./weapon-family.mjs";
+import { renderReloadChatCard } from "./chat-card.mjs";
 
 const SUPPORTED_SWNR_MINOR = "2.3";
 const warnedCompatibilityMessages = new Set();
@@ -200,21 +201,20 @@ async function reloadFromSelectedMagazine({ application, event, weapon }) {
       application,
       result.magazineDeleted ? "" : result.magazineId,
     );
-    const content = game.i18n.format("CWNCE.Magazine.Chat.Reloaded", {
-      weapon: result.weaponName,
-      magazine: result.magazineName,
-      transferred: result.roundsTransferred,
-      weaponCurrent: result.weaponAfter,
-      weaponMaximum: result.weaponMaximum,
-      magazineCurrent: result.magazineAfter,
-      magazineMaximum: result.magazineMaximum,
-      magazineState: result.magazineDeleted
-        ? game.i18n.localize("CWNCE.Magazine.Chat.Deleted")
-        : game.i18n.localize("CWNCE.Magazine.Chat.Retained"),
-    });
     await ChatMessage.create({
       speaker: ChatMessage.getSpeaker({ actor }),
-      content: `<p>${foundry.utils.escapeHTML(content)}</p>`,
+      content: renderReloadChatCard({
+        actorName: actor.name,
+        weaponName: result.weaponName,
+        magazineName: result.magazineName,
+        roundsTransferred: result.roundsTransferred,
+        weaponAfter: result.weaponAfter,
+        weaponMaximum: result.weaponMaximum,
+        magazineAfter: result.magazineAfter,
+        magazineMaximum: result.magazineMaximum,
+        magazineDeleted: result.magazineDeleted,
+        automaticallySelected: selection.automaticallySelected,
+      }),
     });
   } catch (error) {
     const key = error instanceof MagazineReloadError

@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 const moduleRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const releaseRoot = path.join(moduleRoot, "release");
 const stageRoot = path.join(releaseRoot, "cwn-combat-enhancements");
-const browserUploadRoot = path.join(releaseRoot, "github-upload-v0.12.2");
+const browserUploadRoot = path.join(releaseRoot, "github-upload-v0.12.3");
 const files = [
   "CHANGELOG.md",
   "LICENSE",
@@ -31,8 +31,8 @@ for (const directory of directories) {
 const manifest = JSON.parse(
   await fs.readFile(path.join(stageRoot, "module.json"), "utf8"),
 );
-if (manifest.version !== "0.12.2") {
-  throw new Error(`Expected module version 0.12.2 but found ${manifest.version}.`);
+if (manifest.version !== "0.12.3") {
+  throw new Error(`Expected module version 0.12.3 but found ${manifest.version}.`);
 }
 if (
   !manifest.download.endsWith(
@@ -81,7 +81,13 @@ for (const filename of ["en.json"]) {
     path.join(browserUploadRoot, "lang", filename),
   );
 }
-for (const filename of ["magazine-reload.mjs", "weapon-family.mjs"]) {
+for (const filename of [
+  "chat-card.mjs",
+  "cwn-combat-enhancements.mjs",
+  "magazine-reload.mjs",
+  "suppressive-fire.mjs",
+  "weapon-family.mjs",
+]) {
   await fs.copyFile(
     path.join(moduleRoot, "scripts", filename),
     path.join(browserUploadRoot, "scripts", filename),
@@ -94,6 +100,10 @@ for (const filename of ["network-console.mjs", "network-geometry.mjs", "network-
   );
 }
 await fs.copyFile(
+  path.join(moduleRoot, "styles", "cwn-combat-enhancements.css"),
+  path.join(browserUploadRoot, "styles", "cwn-combat-enhancements.css"),
+);
+await fs.copyFile(
   path.join(moduleRoot, "styles", "network-console.css"),
   path.join(browserUploadRoot, "styles", "network-console.css"),
 );
@@ -102,6 +112,7 @@ await fs.copyFile(
   path.join(browserUploadRoot, "templates", "network-console", "console.hbs"),
 );
 for (const filename of [
+  "chat-card.test.mjs",
   "network-geometry.test.mjs",
   "network-model.test.mjs",
   "demon-rules.test.mjs",

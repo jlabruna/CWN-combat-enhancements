@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.12.3
+
+- Filtered standard Demon Programming Profiles by the selected class's fixed
+  command-line capacity while keeping Custom Programming available.
+- Added shared capacity helpers, live total/limit feedback, at-capacity
+  controls, and final validation across profile, Additional Common, and Custom
+  Programming lines.
+- Preserved existing incompatible and over-capacity Demon data for explicit GM
+  correction without truncating or silently rewriting command lines.
+- Added a shared, escaped semantic chat-card renderer for exact reload, Network
+  Console Demon actions, and Demon damage messages.
+- Published stable module-owned chat-card classes and neutral CSS custom
+  properties so optional themes can override presentation without becoming a
+  module dependency.
+- Preserved reload calculations, Demon rules, secrecy, roll modes, structured
+  flags, and the Apply Damage to Demon action.
+
 ## 0.12.2
 
 - Fixed the Add/Edit Demon dialog still growing beyond the viewport when
