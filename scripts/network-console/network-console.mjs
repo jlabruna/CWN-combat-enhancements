@@ -2467,6 +2467,17 @@ function initializeDemonDialog(...args) {
   const root = app?.element ?? args.find((value) => value?.querySelector);
   const form = root?.querySelector?.("[data-demon-form]");
   if (!form) return;
+  // DialogV2 normally derives its height from its content. Lock the rendered
+  // dialog to its initial viewport-safe height so opening the optional command
+  // list scrolls the dialog body instead of growing the window off-screen.
+  if (app?.setPosition) {
+    requestAnimationFrame(() => {
+      const availableHeight = Math.max(360, window.innerHeight - 32);
+      const renderedHeight = Math.ceil(root.getBoundingClientRect().height);
+      const height = Math.min(Math.max(480, renderedHeight), availableHeight);
+      app.setPosition({ height });
+    });
+  }
   const classSelect = form.querySelector("[data-demon-class]");
   const profileSelect = form.querySelector("[data-demon-profile]");
   let previousClass = classSelect.value;
