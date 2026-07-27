@@ -617,7 +617,7 @@
 
 .cwnce-inspector-actions {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 0.3rem;
   margin: 0.5rem 0;
 }
@@ -689,8 +689,152 @@
 }
 
 .cwnce-structured-entry.demon {
-  grid-template-columns: minmax(0, 1fr) repeat(4, 26px);
+  grid-template-columns: minmax(0, 1fr) auto;
   border-left-color: var(--cwnce-net-magenta);
+}
+
+.cwnce-structured-entry.demon.is-expanded {
+  align-items: start;
+}
+
+.cwnce-demon-summary {
+  min-width: 0;
+  display: grid;
+  justify-items: start;
+  padding: 0.2rem;
+  border: 0;
+  background: transparent;
+  text-align: left;
+}
+
+.cwnce-demon-row-actions {
+  display: grid;
+  grid-template-columns: repeat(4, 26px);
+  gap: 0.18rem;
+}
+
+.cwnce-demon-expanded {
+  grid-column: 1 / -1;
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.45rem 0.25rem 0.2rem;
+  border-top: 1px solid var(--cwnce-net-line);
+}
+
+.cwnce-demon-hp-controls {
+  display: grid;
+  grid-template-columns: 28px minmax(48px, 0.6fr) auto 28px minmax(90px, 1fr) minmax(65px, 0.7fr);
+  gap: 0.2rem;
+}
+
+.cwnce-demon-hp-controls input,
+.cwnce-demon-hp-controls button {
+  min-width: 0;
+  height: 28px;
+}
+
+.cwnce-demon-commands {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.cwnce-demon-commands li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.25rem;
+  align-items: center;
+  padding: 0.3rem;
+  border-left: 2px solid var(--cwnce-net-cyan);
+  background: color-mix(in srgb, var(--cwnce-net-panel) 82%, transparent);
+}
+
+.cwnce-demon-commands li.source-common {
+  border-left-color: var(--cwnce-net-magenta);
+}
+
+.cwnce-demon-commands li.source-custom,
+.cwnce-demon-commands li.source-legacy {
+  border-left-color: var(--cwnce-net-orange);
+}
+
+.cwnce-demon-commands small,
+.cwnce-demon-commands em {
+  color: var(--cwnce-net-muted);
+  text-transform: uppercase;
+}
+
+.cwnce-demon-notes {
+  margin: 0;
+  color: var(--cwnce-net-muted);
+}
+
+.cwnce-demon-form {
+  display: grid;
+  gap: 0.45rem;
+  width: min(100%, 640px);
+}
+
+.cwnce-demon-form .form-group {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.42fr) minmax(0, 1fr);
+  gap: 0.65rem;
+  align-items: center;
+  margin: 0;
+}
+
+.cwnce-demon-form .form-group.stacked {
+  grid-template-columns: 1fr;
+}
+
+.cwnce-demon-form input,
+.cwnce-demon-form select,
+.cwnce-demon-form textarea {
+  width: 100%;
+  min-width: 0;
+}
+
+.cwnce-dialog-command-list h3,
+.cwnce-dialog-additional-lines summary {
+  margin: 0.25rem 0;
+  color: var(--cwnce-net-magenta);
+}
+
+.cwnce-dialog-command-list ol {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.cwnce-command-choice {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 76px;
+  gap: 0.4rem;
+  align-items: start;
+  margin: 0.25rem 0;
+}
+
+.cwnce-demon-chat-card {
+  border-left: 3px solid var(--cwnce-net-magenta, #ff3fa4);
+  padding: 0.5rem 0.65rem;
+}
+
+@media (max-width: 620px) {
+  .cwnce-demon-form .form-group {
+    grid-template-columns: 1fr;
+    gap: 0.2rem;
+  }
+
+  .cwnce-demon-hp-controls {
+    grid-template-columns: 28px minmax(45px, 1fr) auto 28px;
+  }
+
+  .cwnce-demon-hp-controls button:nth-last-child(-n + 2) {
+    grid-column: span 2;
+  }
 }
 
 .cwnce-structured-entry.is-hidden {

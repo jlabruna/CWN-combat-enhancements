@@ -5,7 +5,7 @@ import { fileURLToPath } from "node:url";
 const moduleRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const releaseRoot = path.join(moduleRoot, "release");
 const stageRoot = path.join(releaseRoot, "cwn-combat-enhancements");
-const browserUploadRoot = path.join(releaseRoot, "github-upload-v0.11.0");
+const browserUploadRoot = path.join(releaseRoot, "github-upload-v0.12.0");
 const files = [
   "CHANGELOG.md",
   "LICENSE",
@@ -31,8 +31,8 @@ for (const directory of directories) {
 const manifest = JSON.parse(
   await fs.readFile(path.join(stageRoot, "module.json"), "utf8"),
 );
-if (manifest.version !== "0.11.0") {
-  throw new Error(`Expected module version 0.11.0 but found ${manifest.version}.`);
+if (manifest.version !== "0.12.0") {
+  throw new Error(`Expected module version 0.12.0 but found ${manifest.version}.`);
 }
 if (
   !manifest.download.endsWith(
@@ -87,7 +87,7 @@ for (const filename of ["magazine-reload.mjs", "weapon-family.mjs"]) {
     path.join(browserUploadRoot, "scripts", filename),
   );
 }
-for (const filename of ["network-console.mjs", "network-geometry.mjs", "network-model.mjs"]) {
+for (const filename of ["network-console.mjs", "network-geometry.mjs", "network-model.mjs", "demon-rules.mjs"]) {
   await fs.copyFile(
     path.join(moduleRoot, "scripts", "network-console", filename),
     path.join(browserUploadRoot, "scripts", "network-console", filename),
@@ -104,6 +104,7 @@ await fs.copyFile(
 for (const filename of [
   "network-geometry.test.mjs",
   "network-model.test.mjs",
+  "demon-rules.test.mjs",
   "weapon-family.test.mjs",
 ]) {
   await fs.copyFile(

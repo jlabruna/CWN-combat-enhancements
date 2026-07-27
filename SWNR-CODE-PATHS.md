@@ -175,9 +175,9 @@ magazine wrapper does not replace either attack path.
 
 ## Network Console rules and program data
 
-The Network Console remains module-owned and stores its schema-v2 data in a
-GM-only Journal flag. Its current Verb and Subject display uses the program
-names and targets supplied by SWNR 2.3.0 under:
+The Network Console remains module-owned and stores its schema-v3 data in a
+GM-only Journal flag. Prepared player requests and Demon program compatibility
+use the program names, targets, and modifiers supplied by SWNR 2.3.0 under:
 
 - `src/packs/cwn-items/*` for the CWN program Items;
 - `module/data/items/item-program.mjs` for the program data model;
@@ -188,6 +188,14 @@ used by `programsAreCompatible()` in the existing console request workflow:
 Avatar, Cyber, Data, Device, and Program. Demon class defaults come from the CWN
 SRD table rather than SWNR actor data; SWNR does not provide Demon actor stat
 blocks. Network editing does not modify the SWNR system or any SWNR compendium.
+
+Version 0.12.0 also cross-checks the SWNR 2.3.x program Items for Stun,
+Paralyze, Kill, Lock, Defend, Erase and Terminate targets and modifiers. Demon
+class statistics, programming profiles, command priorities, Alert actions,
+movement, fragging and reboot boundaries come from the CWN rules rather than an
+SWNR Demon Actor model. SWNR does not provide a persistent Demon Actor or
+avatar-node tracker, so opposed player results, active hostile programs,
+Pursue destinations, and physical effects remain GM-adjudicated.
 
 ## Extension boundary
 

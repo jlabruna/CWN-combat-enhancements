@@ -9,16 +9,32 @@ import {
   createDemonFromTemplate,
   createNode,
   CWN_DEMON_TEMPLATES,
-  CWN_PROGRAM_SUBJECTS,
-  CWN_PROGRAM_VERBS,
   DEFAULT_CANVAS,
   deleteNodeAndConnections,
   duplicateNode,
   NETWORK_SCHEMA_VERSION,
   normalizeNetwork,
-  programsAreRulesCompatible,
   sanitizeNetworkForPlayers,
 } from "./network-model.mjs";
+import {
+  actionRequiresTarget,
+  addCommonCommand,
+  applyDemonDamage,
+  canExecuteDemonAction,
+  CUSTOM_DEMON_CLASS,
+  CUSTOM_PROGRAMMING_PROFILE,
+  CWN_COMMON_COMMAND_LINES,
+  CWN_DEMON_PROGRAMMING_PROFILES,
+  DEMON_ACTIONS,
+  nextAlertProgress,
+  profileCommands,
+  publicDemonChatContext,
+  setDemonHp,
+  validDemonDestinations,
+  validateActionTarget,
+  validateCommandLimit,
+  isTrustedDemonDamageFlag,
+} from "./demon-rules.mjs";
 
 const MODULE_ID = "cwn-combat-enhancements";
 const SOCKET_NAME = `module.${MODULE_ID}`;
@@ -102,6 +118,14 @@ Hooks.once("init", () => {
     restricted: true,
   });
 
+  game.settings.register(MODULE_ID, "networkConsoleGeometry", {
+    name: "Network Console Geometry",
+    scope: "client",
+    config: false,
+    type: String,
+    default: "",
+  });
+
   game.settings.registerMenu(MODULE_ID, "networkConsole", {
     name: "CWNCE.Network.Settings.Menu.Name",
     label: "CWNCE.Network.Settings.Menu.Label",
@@ -163,6 +187,20 @@ Hooks.on("deleteJournalEntry", (journal) => {
   renderOpenNetworkConsole();
 });
 
+Hooks.on("renderChatMessageHTML", (message, html) => {
+  if (!game.user.isGM) return;
+  const flag = message.getFlag(MODULE_ID, "demonDamage");
+  if (!isTrustedDemonDamageFlag(flag, true, message.rolls?.[0]?.total ?? null)) return;
+  const root = html instanceof HTMLElement ? html : html?.[0];
+  if (!root || root.querySelector("[data-cwnce-apply-demon-damage]")) return;
+  const button = document.createElement("button");
+  button.type = "button";
+  button.dataset.cwnceApplyDemonDamage = message.id;
+  button.innerHTML = '<i class="fa-solid fa-ghost"></i> Apply Damage to Demon';
+  button.addEventListener("click", () => applyDamageFromChatMessage(message));
+  root.querySelector(".message-content")?.append(button);
+});
+
 function isNetworkConsoleEnabled() {
   return Boolean(game.settings.get(MODULE_ID, "enableNetworkConsole"));
 }
@@ -174,6 +212,7 @@ function exposeNetworkApi() {
   module.api.networkConsole = {
     open: openNetworkConsole,
     list: listNetworkDocuments,
+    createDemonDamageCard: createDemonDamageCard,
   };
 }
 
@@ -571,7 +610,7 @@ function buildGraph(network, showHidden) {
   return { width, height, nodes: positioned, connections: decoratedConnections };
 }
 
-function decorateNode(node, x = 0, y = 0) {
+function decorateNode(node, x = 0, y = 0, expandedDemonIds = new Set()) {
   const type = NODE_TYPES[node.type] ?? NODE_TYPES.custom;
   return {
     ...node,
@@ -582,7 +621,28 @@ function decorateNode(node, x = 0, y = 0) {
     demonCount: node.demons?.length ?? 0,
     demons: (node.demons ?? []).map((demon) => ({
       ...demon,
-      isFragged: demon.state === "fragged" || (demon.maxHp > 0 && demon.currentHp <= 0),
+      isFragged: Boolean(demon.isFragged) ||
+        demon.state === "fragged" ||
+        (demon.maxHp > 0 && demon.currentHp <= 0),
+      expanded: expandedDemonIds.has(demon.id),
+      classLabel: demon.classKey === CUSTOM_DEMON_CLASS ? "Custom Demon" : demon.classKey,
+      profileLabel: demon.programmingProfile === CUSTOM_PROGRAMMING_PROFILE
+        ? "Custom Programming"
+        : demon.programmingProfile,
+      commands: [
+        ...(demon.profileCommandLines ?? []),
+        ...(demon.additionalCommandLines ?? []),
+        ...(demon.customCommandLines ?? []),
+      ]
+        .sort((a, b) => a.priority - b.priority)
+        .map((command) => ({
+          ...command,
+          nodeId: node.id,
+          demonId: demon.id,
+          action: DEMON_ACTIONS[command.actionKey] ?? null,
+          executable: Boolean(command.actionKey && DEMON_ACTIONS[command.actionKey]),
+        })),
+      actionDisabled: demon.state === "fragged" || demon.currentHp <= 0,
     })),
     positionStyle: `left:${x}px;top:${y}px`,
     cssClass: [
@@ -623,18 +683,28 @@ function nodeOptionMarkup(nodes, selected = "") {
     .join("");
 }
 
-async function waitForFormDialog({ title, content, saveLabel = "Save" }) {
+function formDataObject(form) {
+  const result = {};
+  for (const [key, value] of new FormData(form).entries()) {
+    if (!(key in result)) result[key] = value;
+    else if (Array.isArray(result[key])) result[key].push(value);
+    else result[key] = [result[key], value];
+  }
+  return result;
+}
+
+async function waitForFormDialog({ title, content, saveLabel = "Save", render = null }) {
   return foundry.applications.api.DialogV2.wait({
     window: { title },
     content: `<form class="standard-form cwnce-network-dialog">${content}</form>`,
+    render,
     buttons: [
       {
         action: "save",
         label: saveLabel,
         icon: "fa-solid fa-floppy-disk",
         default: true,
-        callback: (_event, button) =>
-          Object.fromEntries(new FormData(button.form).entries()),
+        callback: (_event, button) => formDataObject(button.form),
       },
       {
         action: "cancel",
@@ -678,6 +748,8 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
   connectionGeometryFrame = null;
   connectionResizeObserver = null;
   connectionEventController = null;
+  expandedDemonIds = new Set();
+  geometryRestored = false;
 
   static DEFAULT_OPTIONS = {
     id: "cwnce-network-console",
@@ -698,6 +770,7 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
       saveNetwork: this.saveNetwork,
       addNode: this.addNode,
       editNode: this.editNode,
+      editNodeDetails: this.editNodeDetails,
       saveNodeInspector: this.saveNodeInspector,
       duplicateNode: this.duplicateNode,
       autoArrange: this.autoArrange,
@@ -720,6 +793,13 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
       duplicateDemon: this.duplicateDemon,
       deleteDemon: this.deleteDemon,
       toggleDemonReveal: this.toggleDemonReveal,
+      toggleDemonExpanded: this.toggleDemonExpanded,
+      adjustDemonHp: this.adjustDemonHp,
+      setDemonHp: this.setDemonHp,
+      setDemonState: this.setDemonState,
+      applyDemonDamage: this.applyDemonDamage,
+      restoreDemon: this.restoreDemon,
+      executeDemonAction: this.executeDemonAction,
       addWatchdog: this.addWatchdog,
       editWatchdog: this.editWatchdog,
       deleteWatchdog: this.deleteWatchdog,
@@ -788,7 +868,9 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
       this.selectedNodeId = network.nodes[0]?.id ?? null;
     }
     const selectedNode = findNode(network, this.selectedNodeId);
-    context.selectedNode = selectedNode ? decorateNode(selectedNode) : null;
+    context.selectedNode = selectedNode
+      ? decorateNode(selectedNode, 0, 0, this.expandedDemonIds)
+      : null;
     const selectedConnection = network.connections.find(
       (connection) => connection.id === this.selectedConnectionId,
     );
@@ -835,6 +917,7 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
 
   _onRender(context, options) {
     super._onRender(context, options);
+    this._restoreGeometry();
     this._watchConnectionGeometry();
     const select = this.element.querySelector("[data-network-select]");
     select?.addEventListener("change", async (event) => {
@@ -845,7 +928,40 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
       await publishNetworkProjection(getActiveNetworkDocument());
       this.render();
     });
+    for (const stateSelect of this.element.querySelectorAll("[data-demon-state]")) {
+      stateSelect.addEventListener("change", (event) =>
+        NetworkConsoleApp.setDemonState.call(this, event, event.currentTarget));
+    }
     if (game.user.isGM) this._enableVisualEditor();
+  }
+
+  _restoreGeometry() {
+    if (this.geometryRestored) return;
+    this.geometryRestored = true;
+    try {
+      const stored = JSON.parse(game.settings.get(MODULE_ID, "networkConsoleGeometry") || "null");
+      if (!stored) return;
+      const width = Math.max(760, Math.min(window.innerWidth - 24, Number(stored.width) || 1120));
+      const height = Math.max(560, Math.min(window.innerHeight - 24, Number(stored.height) || 780));
+      const left = Math.max(0, Math.min(window.innerWidth - width, Number(stored.left) || 0));
+      const top = Math.max(0, Math.min(window.innerHeight - height, Number(stored.top) || 0));
+      this.setPosition({ width, height, left, top });
+    } catch (error) {
+      console.warn(`${MODULE_ID} | Ignoring invalid Network Console geometry.`, error);
+    }
+  }
+
+  async close(options = {}) {
+    if (this.element?.isConnected) {
+      const rect = this.element.getBoundingClientRect();
+      await game.settings.set(MODULE_ID, "networkConsoleGeometry", JSON.stringify({
+        left: Math.round(rect.left),
+        top: Math.round(rect.top),
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+      }));
+    }
+    return super.close(options);
   }
 
   _enableVisualEditor() {
@@ -1270,10 +1386,29 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
     node.type = NODE_TYPES[data.type] ? data.type : "custom";
     node.state = NODE_STATES[data.state] ? data.state : "normal";
     node.revealed = data.revealed === "on";
+    await saveNetwork(journal, network);
+    ui.notifications.info(`${node.name} saved.`);
+    this.render();
+  }
+
+  static async editNodeDetails(_event, target) {
+    if (!game.user.isGM) return;
+    const journal = getActiveNetworkDocument();
+    const network = getNetworkData(journal);
+    const node = findNode(network, target.dataset.nodeId);
+    if (!journal || !network || !node) return;
+    const escaped = (value) => foundry.utils.escapeHTML(String(value ?? ""));
+    const data = await waitForFormDialog({
+      title: `${node.name}: Details and Notes`,
+      content: `
+        <div class="form-group stacked"><label>Player Description</label><textarea name="description" rows="4">${escaped(node.description)}</textarea></div>
+        <div class="form-group stacked"><label>Private GM Notes</label><textarea name="gmNotes" rows="5">${escaped(node.gmNotes)}</textarea></div>
+      `,
+    });
+    if (!data) return;
     node.description = String(data.description || "").trim();
     node.gmNotes = String(data.gmNotes || "").trim();
     await saveNetwork(journal, network);
-    ui.notifications.info(`${node.name} saved.`);
     this.render();
   }
 
@@ -1600,6 +1735,7 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
       title: "Add Demon",
       saveLabel: "Add Demon",
       content: demonDialogContent(),
+      render: initializeDemonDialog,
     });
     if (!data?.class) return;
     const demon = demonFromForm(data, foundry.utils.randomID());
@@ -1618,7 +1754,8 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
     if (!journal || !network || !node || index < 0) return;
     const data = await waitForFormDialog({
       title: `Edit ${node.demons[index].name}`,
-      content: demonDialogContent(node.demons[index]),
+      content: demonDialogContent(node.demons[index], node.id),
+      render: initializeDemonDialog,
     });
     if (!data?.class) return;
     const demon = demonFromForm(data, node.demons[index].id, node.demons[index]);
@@ -1638,10 +1775,16 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
     const copy = foundry.utils.deepClone(original);
     copy.id = foundry.utils.randomID();
     copy.name = `${original.name} Copy`;
-    copy.commands = copy.commands.map((command) => ({
-      ...command,
-      id: foundry.utils.randomID(),
-    }));
+    for (const collection of [
+      "profileCommandLines",
+      "additionalCommandLines",
+      "customCommandLines",
+    ]) {
+      copy[collection] = (copy[collection] ?? []).map((command) => ({
+        ...command,
+        id: foundry.utils.randomID(),
+      }));
+    }
     node.demons.push(copy);
     await saveNetwork(journal, network);
     this.render();
@@ -1662,6 +1805,80 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
 
   static async toggleDemonReveal(_event, target) {
     await toggleNodeEntry(this, target, "demons", "demonId");
+  }
+
+  static toggleDemonExpanded(_event, target) {
+    const id = target.dataset.demonId;
+    if (!id) return;
+    if (this.expandedDemonIds.has(id)) this.expandedDemonIds.delete(id);
+    else this.expandedDemonIds.add(id);
+    this.render();
+  }
+
+  static async adjustDemonHp(_event, target) {
+    await updateStoredDemonHp(
+      this,
+      target.dataset.nodeId,
+      target.dataset.demonId,
+      (demon) => setDemonHp(demon, demon.currentHp + Number(target.dataset.delta || 0)),
+    );
+  }
+
+  static async setDemonHp(_event, target) {
+    const input = target.closest(".cwnce-demon-expanded")?.querySelector("[data-demon-hp]");
+    await updateStoredDemonHp(
+      this,
+      target.dataset.nodeId,
+      target.dataset.demonId,
+      (demon) => setDemonHp(demon, input?.value),
+    );
+  }
+
+  static async setDemonState(_event, target) {
+    const state = target.value;
+    await updateStoredDemonHp(
+      this,
+      target.dataset.nodeId,
+      target.dataset.demonId,
+      (demon) => state === "fragged"
+        ? setDemonHp(demon, 0)
+        : setDemonHp(demon, Math.max(1, demon.currentHp)),
+    );
+  }
+
+  static async applyDemonDamage(_event, target) {
+    const nodeId = target.dataset.nodeId;
+    const demonId = target.dataset.demonId;
+    const found = getStoredDemon(nodeId, demonId);
+    if (!found) return;
+    const data = await waitForFormDialog({
+      title: `Apply Damage to ${found.demon.name}`,
+      saveLabel: "Apply Damage",
+      content: '<div class="form-group"><label>Damage</label><input type="number" min="0" step="1" name="damage" value="1" required autofocus></div>',
+    });
+    const damage = Number(data?.damage);
+    if (!Number.isInteger(damage) || damage < 0) return;
+    if (!await confirmAction("Confirm Demon Damage", `Apply ${damage} damage to ${foundry.utils.escapeHTML(found.demon.name)}?`)) return;
+    await updateStoredDemonHp(this, nodeId, demonId, (demon) => applyDemonDamage(demon, damage));
+    await postDemonDamageResult(found.demon.name, damage);
+  }
+
+  static async restoreDemon(_event, target) {
+    await updateStoredDemonHp(
+      this,
+      target.dataset.nodeId,
+      target.dataset.demonId,
+      (demon) => setDemonHp(demon, demon.maxHp),
+    );
+  }
+
+  static async executeDemonAction(_event, target) {
+    await executeStoredDemonAction(
+      this,
+      target.dataset.nodeId,
+      target.dataset.demonId,
+      target.dataset.actionKey,
+    );
   }
 
   static async addWatchdog(_event, target) {
@@ -1764,6 +1981,242 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
   }
 }
 
+function getStoredDemon(nodeId, demonId) {
+  if (!game.user.isGM) return null;
+  const journal = getActiveNetworkDocument();
+  const network = getNetworkData(journal);
+  const node = findNode(network, nodeId);
+  const demon = node?.demons.find((entry) => entry.id === demonId);
+  return journal && network && node && demon ? { journal, network, node, demon } : null;
+}
+
+async function updateStoredDemonHp(app, nodeId, demonId, updater) {
+  const found = getStoredDemon(nodeId, demonId);
+  if (!found) return;
+  const index = found.node.demons.findIndex((entry) => entry.id === demonId);
+  found.node.demons[index] = updater(found.demon);
+  await saveNetwork(found.journal, found.network);
+  app.render();
+}
+
+async function chooseDemonActionTarget(actionKey, network, node) {
+  const action = DEMON_ACTIONS[actionKey];
+  if (!actionRequiresTarget(actionKey)) return null;
+  let targets = [];
+  if (action.targetType === "hacker") {
+    const seen = new Set();
+    targets = getPreparedCyberdecks()
+      .filter(({ hacker }) => !seen.has(hacker.id) && seen.add(hacker.id))
+      .map(({ hacker }) => ({ id: hacker.id, name: hacker.name, type: "hacker" }));
+  } else if (action.targetType === "node") {
+    targets = [{ id: node.id, name: node.name, type: "node" }];
+  } else if (action.targetType === "device") {
+    targets = network.nodes
+      .filter((candidate) => candidate.id === node.id && candidate.state === "deactivated")
+      .map((candidate) => ({ id: candidate.id, name: candidate.name, type: "device" }));
+  } else if (action.targetType === "barrier") {
+    targets = network.connections
+      .filter((connection) =>
+        connection.barrier &&
+        !connection.barrierLocked &&
+        (connection.source === node.id || connection.target === node.id))
+      .map((connection) => ({
+        id: connection.id,
+        name: connectionLabel(connection, network),
+        type: "barrier",
+      }));
+  } else if (action.targetType === "destination") {
+    targets = validDemonDestinations(network, node.id)
+      .map((destination) => ({
+        ...destination,
+        type: "destination",
+        name: `${destination.name}${destination.barrierLocked ? " — LOCKED BARRIER" : destination.barrier ? " — barrier" : ""}`,
+      }));
+  }
+  if (!targets.length) {
+    ui.notifications.warn(`No valid ${action.targetType} target is currently available.`);
+    return false;
+  }
+  const options = targets
+    .map((target) =>
+      `<option value="${foundry.utils.escapeHTML(target.id)}">${foundry.utils.escapeHTML(target.name)}</option>`)
+    .join("");
+  const data = await waitForFormDialog({
+    title: `${action.label}: Choose Target`,
+    saveLabel: "Choose Target",
+    content: `<div class="form-group"><label>Target</label><select name="targetId" required autofocus>${options}</select></div>`,
+  });
+  if (!data?.targetId) return false;
+  return targets.find((target) => target.id === data.targetId) ?? false;
+}
+
+async function executeStoredDemonAction(app, nodeId, demonId, actionKey) {
+  const found = getStoredDemon(nodeId, demonId);
+  if (!found) return;
+  const permission = canExecuteDemonAction(found.demon, actionKey, game.user.isGM);
+  if (!permission.allowed) {
+    ui.notifications.warn(permission.reason === "fragged"
+      ? "A Fragged Demon cannot execute actions."
+      : "That Demon action is not available.");
+    return;
+  }
+  const action = DEMON_ACTIONS[actionKey];
+  const target = await chooseDemonActionTarget(actionKey, found.network, found.node);
+  if (target === false || !validateActionTarget(actionKey, target)) {
+    if (action.targetType !== "none") return;
+  }
+  let storedChanged = false;
+  if (action.resolution === "no-roll" || action.resolution === "manual") {
+    const confirmed = await confirmAction(
+      action.label,
+      `${foundry.utils.escapeHTML(action.guidance)}${target?.blocked ? "<br><strong>This route is blocked by a locked barrier.</strong>" : ""}`,
+    );
+    if (!confirmed) return;
+  }
+  if (actionKey === "alert-network") {
+    found.network.alertProgress = nextAlertProgress(found.network.alertProgress);
+    storedChanged = true;
+  } else if (actionKey === "reboot-device" && target) {
+    const device = findNode(found.network, target.id);
+    if (!device || device.state !== "deactivated") return;
+    device.state = "normal";
+    storedChanged = true;
+  } else if (actionKey === "move" && target) {
+    const freshDestination = validDemonDestinations(found.network, found.node.id)
+      .find((destination) => destination.id === target.id);
+    if (!freshDestination || freshDestination.blocked) {
+      ui.notifications.warn("The Demon cannot silently traverse that route.");
+      return;
+    }
+    const destination = findNode(found.network, freshDestination.id);
+    found.node.demons = found.node.demons.filter((entry) => entry.id !== found.demon.id);
+    destination.demons.push(found.demon);
+    app.selectedNodeId = destination.id;
+    storedChanged = true;
+  }
+  let roll = null;
+  let damageRoll = null;
+  if (action.rollFormula) {
+    roll = await new Roll(action.rollFormula.replace("@skillBonus", String(found.demon.skillBonus))).evaluate();
+    if (action.damageFormula) {
+      const dice = Math.max(1, found.demon.skillBonus);
+      damageRoll = await new Roll(action.damageFormula.replace("max(1, @skillBonus)", String(dice))).evaluate();
+    }
+  }
+  if (storedChanged) await saveNetwork(found.journal, found.network);
+  await postDemonActionCard({
+    network: found.network,
+    node: found.node,
+    demon: found.demon,
+    actionKey,
+    target,
+    roll,
+    damageRoll,
+  });
+  if (storedChanged) app.render();
+}
+
+async function postDemonActionCard({ network, node, demon, actionKey, target, roll, damageRoll }) {
+  const safe = publicDemonChatContext({
+    demon,
+    networkName: network.name,
+    nodeName: node.name,
+    actionKey,
+    targetName: target?.name ?? "",
+  });
+  const action = DEMON_ACTIONS[actionKey];
+  const escaped = (value) => foundry.utils.escapeHTML(String(value ?? ""));
+  const content = `
+    <article class="cwnce-demon-chat-card">
+      <header><i class="fa-solid fa-ghost"></i> <strong>${escaped(safe.demonName)}</strong> — ${escaped(safe.actionName)}</header>
+      <p>${escaped(safe.networkName)} · ${escaped(safe.nodeName)}${safe.targetName ? ` · Target: ${escaped(safe.targetName)}` : ""}</p>
+      ${roll ? `<p>Check: <strong>${roll.total}</strong> (${escaped(action.rollFormula)})</p>` : "<p>No roll required.</p>"}
+      ${damageRoll ? `<p>Potential damage: <strong>${damageRoll.total}</strong> (${escaped(action.damageFormula)})</p>` : ""}
+      <p>${escaped(safe.guidance)}</p>
+      <small>${action.automated ? "Supported state change automated." : "GM adjudication required."}</small>
+    </article>`;
+  const data = {
+    content,
+    rolls: [roll, damageRoll].filter(Boolean),
+    speaker: ChatMessage.getSpeaker({ alias: safe.demonName }),
+  };
+  if (!demon.revealed || !node.revealed) {
+    data.whisper = ChatMessage.getWhisperRecipients("GM").map((user) => user.id);
+  }
+  else ChatMessage.applyRollMode(data, game.settings.get("core", "rollMode"));
+  await ChatMessage.create(data);
+}
+
+async function postDemonDamageResult(name, damage) {
+  await ChatMessage.create({
+    content: `<p><i class="fa-solid fa-ghost"></i> ${foundry.utils.escapeHTML(name)} takes <strong>${damage}</strong> damage.</p>`,
+    whisper: ChatMessage.getWhisperRecipients("GM").map((user) => user.id),
+  });
+}
+
+async function createDemonDamageCard({ damage, networkId = "", nodeId = "", demonId = "", label = "Hacker program damage" } = {}) {
+  const amount = Math.max(0, Math.trunc(Number(damage) || 0));
+  return ChatMessage.create({
+    content: `<p>${foundry.utils.escapeHTML(label)}: <strong>${amount}</strong></p>`,
+    flags: {
+      [MODULE_ID]: {
+        demonDamage: {
+          kind: "demon-damage",
+          producer: MODULE_ID,
+          damage: amount,
+          networkId,
+          nodeId,
+          demonId,
+        },
+      },
+    },
+  });
+}
+
+async function applyDamageFromChatMessage(message) {
+  if (!game.user.isGM) return;
+  const flag = message.getFlag(MODULE_ID, "demonDamage");
+  if (!isTrustedDemonDamageFlag(flag, true, message.rolls?.[0]?.total ?? null)) return;
+  const journals = listNetworkDocuments();
+  const choices = [];
+  for (const journal of journals) {
+    const network = getNetworkData(journal);
+    for (const node of network.nodes) {
+      for (const demon of node.demons) {
+        choices.push({
+          journal,
+          network,
+          node,
+          demon,
+          value: `${journal.id}:${node.id}:${demon.id}`,
+        });
+      }
+    }
+  }
+  if (!choices.length) {
+    ui.notifications.warn("No Demon is available.");
+    return;
+  }
+  const preferred = choices.find(({ network, node, demon }) =>
+    network.id === flag.networkId && node.id === flag.nodeId && demon.id === flag.demonId);
+  const options = choices.map((choice) =>
+    `<option value="${choice.value}"${choice === preferred ? " selected" : ""}>${foundry.utils.escapeHTML(`${choice.network.name} — ${choice.node.name} — ${choice.demon.name}`)}</option>`,
+  ).join("");
+  const data = await waitForFormDialog({
+    title: "Apply Hacker Damage to Demon",
+    saveLabel: "Continue",
+    content: `<p>Damage: <strong>${flag.damage}</strong></p><div class="form-group"><label>Demon</label><select name="target" required>${options}</select></div>`,
+  });
+  const selected = choices.find((choice) => choice.value === data?.target);
+  if (!selected) return;
+  if (!await confirmAction("Confirm Demon Damage", `Apply ${flag.damage} damage to ${foundry.utils.escapeHTML(selected.demon.name)}?`)) return;
+  const index = selected.node.demons.findIndex((entry) => entry.id === selected.demon.id);
+  selected.node.demons[index] = applyDemonDamage(selected.demon, flag.damage);
+  await saveNetwork(selected.journal, selected.network);
+  renderOpenNetworkConsole();
+  await postDemonDamageResult(selected.demon.name, flag.damage);
+}
+
 async function toggleNodeEntry(app, target, collectionName, datasetKey) {
   if (!game.user.isGM) return;
   const journal = getActiveNetworkDocument();
@@ -1803,81 +2256,206 @@ function datafileDialogContent(datafile = {}) {
 }
 
 function demonFromForm(data, id, existing = null) {
-  const template = createDemonFromTemplate(String(data.class || ""), id);
-  if (!template) return null;
-  const fallback = existing?.class === data.class ? existing : template;
-  const maxHp = Math.max(
-    0,
-    Math.trunc(data.maxHp === "" ? fallback.maxHp : Number(data.maxHp)),
-  );
-  let currentHp = Math.min(
-    maxHp,
-    Math.max(0, Math.trunc(data.currentHp === "" ? fallback.currentHp : Number(data.currentHp))),
-  );
-  if (data.state === "fragged") currentHp = 0;
-  const verb = CWN_PROGRAM_VERBS.includes(data.currentVerb) ? data.currentVerb : "";
-  const subject = CWN_PROGRAM_SUBJECTS.includes(data.currentSubject) ? data.currentSubject : "";
-  if ((verb || subject) && !programsAreRulesCompatible(verb, subject)) {
-    ui.notifications.warn("That Verb and Subject combination is not supported by the CWN program targets.");
+  const classKey = String(data.classKey || "");
+  const profile = String(data.programmingProfile || CUSTOM_PROGRAMMING_PROFILE);
+  let demon;
+  if (classKey === CUSTOM_DEMON_CLASS) {
+    const maxHp = Number(data.maxHp);
+    const currentHp = Number(data.currentHp);
+    const skillBonus = Number(data.skillBonus);
+    if (!Number.isInteger(maxHp) || maxHp < 1 ||
+        !Number.isInteger(currentHp) || currentHp < 0 || currentHp > maxHp ||
+        !Number.isInteger(skillBonus) || skillBonus < -20 || skillBonus > 20) {
+      ui.notifications.warn("Custom Demon HP must be valid integers and Skill Bonus must be between -20 and +20.");
+      return null;
+    }
+    demon = {
+      id,
+      classKey,
+      name: String(data.name || "Custom Demon").trim(),
+      currentHp,
+      maxHp,
+      skillBonus,
+      lineLimit: 0,
+      cost: 0,
+      state: currentHp === 0 ? "fragged" : "active",
+    };
+  } else {
+    demon = createDemonFromTemplate(classKey, id, profile);
+    if (!demon) return null;
+    if (existing?.classKey === classKey) {
+      demon.currentHp = Math.min(demon.maxHp, Math.max(0, existing.currentHp));
+      demon.state = demon.currentHp === 0 ? "fragged" : "active";
+    }
+    demon.name = String(data.name || classKey).trim();
+  }
+  if (!demon.name) {
+    ui.notifications.warn("A Demon name is required.");
     return null;
   }
-  const commands = String(data.commands || "")
-    .split(/\r?\n/)
-    .map((command) => command.trim())
-    .filter(Boolean);
-  if (commands.length > template.lineLimit) {
+  demon.programmingProfile = profile;
+  demon.profileCommandLines = profileCommands(profile, id);
+  demon.additionalCommandLines = [];
+  const selectedKeys = Array.isArray(data.additionalKeys)
+    ? data.additionalKeys
+    : (data.additionalKeys ? [data.additionalKeys] : []);
+  for (const key of selectedKeys) {
+    const result = addCommonCommand(demon, key, foundry.utils.randomID());
+    if (result.added) {
+      demon = result.demon;
+      const command = demon.additionalCommandLines.at(-1);
+      const requestedPriority = Number(data[`priority.${key}`]);
+      if (Number.isInteger(requestedPriority) && requestedPriority > 0) {
+        command.priority = requestedPriority;
+      }
+    }
+  }
+  demon.customCommandLines = profile === CUSTOM_PROGRAMMING_PROFILE
+    ? String(data.customCommands || "")
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+        .map((line, index) => ({
+          id: foundry.utils.randomID(),
+          key: "",
+          priority: demon.profileCommandLines.length + demon.additionalCommandLines.length + index + 1,
+          text: line,
+          actionKey: "",
+          sourceType: "custom",
+        }))
+    : [];
+  demon.revealed = data.revealed === "on";
+  demon.notes = String(data.notes || "").trim();
+  const limit = validateCommandLimit(demon);
+  if (limit.exceeded) {
     ui.notifications.warn(
-      `${data.class} supports at most ${template.lineLimit} command line(s).`,
+      `${classKey} supports ${limit.limit} command lines, but ${limit.count} are configured. Remove a line before saving.`,
     );
     return null;
   }
-  return {
-    ...template,
-    id,
-    name: String(data.name || data.class).trim(),
-    class: data.class,
-    currentHp,
-    maxHp,
-    skill: Math.trunc(data.skill === "" ? fallback.skill : Number(data.skill)),
-    state: currentHp === 0 ? "fragged" : (data.state === "fragged" ? "fragged" : "active"),
-    commands: commands
-      .map((command) => ({ id: foundry.utils.randomID(), text: command })),
-    revealed: data.revealed === "on",
-    currentVerb: verb,
-    currentSubject: subject,
-    notes: String(data.notes || "").trim(),
-  };
+  return demon;
 }
 
-function demonDialogContent(demon = {}) {
+function demonDialogContent(demon = {}, nodeId = "") {
   const escaped = (value) => foundry.utils.escapeHTML(String(value ?? ""));
-  const classOptions = optionMarkup(
-    Object.fromEntries(Object.keys(CWN_DEMON_TEMPLATES).map((name) => [name, name])),
-    demon.class,
+  const classKey = demon.classKey ?? "Tripwire";
+  const profile = demon.programmingProfile ?? CUSTOM_PROGRAMMING_PROFILE;
+  const classOptions = optionMarkup({
+    ...Object.fromEntries(Object.keys(CWN_DEMON_TEMPLATES).map((name) => [name, name])),
+    [CUSTOM_DEMON_CLASS]: "Custom Demon",
+  }, classKey);
+  const profileOptions = optionMarkup(
+    Object.fromEntries(Object.keys(CWN_DEMON_PROGRAMMING_PROFILES)
+      .map((name) => [name === "Custom Programming" ? CUSTOM_PROGRAMMING_PROFILE : name, name])),
+    profile,
   );
-  const verbOptions = `<option value="">No current Verb</option>${optionMarkup(
-    Object.fromEntries(CWN_PROGRAM_VERBS.map((name) => [name, name])),
-    demon.currentVerb,
-  )}`;
-  const subjectOptions = `<option value="">No current Subject</option>${optionMarkup(
-    Object.fromEntries(CWN_PROGRAM_SUBJECTS.map((name) => [name, name])),
-    demon.currentSubject,
-  )}`;
-  const commands = (demon.commands ?? []).map((command) => command.text).join("\n");
+  const selectedAdditional = new Set(
+    (demon.additionalCommandLines ?? []).map((command) => command.key),
+  );
+  const additionalPriorities = new Map(
+    (demon.additionalCommandLines ?? []).map((command) => [command.key, command.priority]),
+  );
+  const commonOptions = Object.entries(CWN_COMMON_COMMAND_LINES)
+    .filter(([, command]) => !command.profileOnly)
+    .map(([key, command]) => `
+      <label class="cwnce-command-choice">
+        <input type="checkbox" name="additionalKeys" value="${key}"${selectedAdditional.has(key) ? " checked" : ""}>
+        <span>${escaped(command.text)}</span>
+        <input type="number" min="1" step="1" name="priority.${key}" value="${additionalPriorities.get(key) ?? ""}" placeholder="Priority" aria-label="Priority for ${escaped(command.text)}">
+      </label>`)
+    .join("");
+  const customCommands = (demon.customCommandLines ?? []).map((command) => command.text).join("\n");
   return `
-    <p class="hint">Class defaults are the CWN Demon table values. Saving a different class applies that class's defaults unless values are entered here.</p>
-    <div class="form-group"><label>Demon class</label><select name="class" required>${classOptions}</select></div>
-    <div class="form-group"><label>Name</label><input name="name" value="${escaped(demon.name)}" placeholder="Defaults to class name"></div>
-    <div class="form-group"><label>Current HP</label><input type="number" min="0" name="currentHp" value="${demon.currentHp ?? ""}" placeholder="Class default"></div>
-    <div class="form-group"><label>Maximum HP</label><input type="number" min="0" name="maxHp" value="${demon.maxHp ?? ""}" placeholder="Class default"></div>
-    <div class="form-group"><label>Skill bonus</label><input type="number" name="skill" value="${demon.skill ?? ""}" placeholder="Class default"></div>
-    <div class="form-group"><label>State</label><select name="state"><option value="active"${demon.state !== "fragged" ? " selected" : ""}>Active</option><option value="fragged"${demon.state === "fragged" ? " selected" : ""}>Fragged (0 HP)</option></select></div>
-    <div class="form-group"><label>Revealed to players</label><input type="checkbox" name="revealed"${demon.revealed ? " checked" : ""}></div>
-    <div class="form-group"><label>Current Verb</label><select name="currentVerb">${verbOptions}</select></div>
-    <div class="form-group"><label>Current Subject</label><select name="currentSubject">${subjectOptions}</select></div>
-    <div class="form-group stacked"><label>Prioritized command lines (one per line)</label><textarea name="commands" rows="5">${escaped(commands)}</textarea></div>
-    <div class="form-group stacked"><label>Private GM notes</label><textarea name="notes" rows="3">${escaped(demon.notes)}</textarea></div>
+    <div class="cwnce-demon-form" data-demon-form data-node-id="${escaped(nodeId)}" data-demon-id="${escaped(demon.id)}">
+      <p class="hint">Standard class statistics are fixed to the CWN Demon table. Encounter HP is managed from the node inspector.</p>
+      <div class="form-group"><label>Demon Class</label><select name="classKey" data-demon-class required>${classOptions}</select></div>
+      <div class="form-group"><label>Name</label><input name="name" value="${escaped(demon.name)}" placeholder="Defaults to class name" required></div>
+      <div class="form-group" data-standard-summary><label>Class Statistics</label><div class="form-fields"><span data-class-summary></span></div></div>
+      <div data-custom-stats>
+        <div class="form-group"><label>Current HP</label><input type="number" min="0" name="currentHp" value="${demon.currentHp ?? 1}"></div>
+        <div class="form-group"><label>Maximum HP</label><input type="number" min="1" name="maxHp" value="${demon.maxHp ?? 1}"></div>
+        <div class="form-group"><label>Skill Bonus</label><input type="number" min="-20" max="20" name="skillBonus" value="${demon.skillBonus ?? 0}"></div>
+      </div>
+      <div class="form-group"><label>Programming Profile</label><select name="programmingProfile" data-demon-profile>${profileOptions}</select></div>
+      <section class="cwnce-dialog-command-list">
+        <h3>Profile Command Lines</h3>
+        <ol data-profile-preview></ol>
+      </section>
+      <details class="cwnce-dialog-additional-lines">
+        <summary>Additional Common Command Lines</summary>
+        ${commonOptions}
+      </details>
+      <div class="form-group stacked" data-custom-commands><label>Custom Programming Lines</label><textarea name="customCommands" rows="4">${escaped(customCommands)}</textarea></div>
+      <div class="form-group"><label>Revealed to Players</label><input type="checkbox" name="revealed"${demon.revealed ? " checked" : ""}></div>
+      <div class="form-group stacked"><label>Private GM Notes</label><textarea name="notes" rows="3">${escaped(demon.notes)}</textarea></div>
+    </div>
   `;
+}
+
+function initializeDemonDialog(...args) {
+  const app = args.find((value) => value?.element?.querySelector);
+  const root = app?.element ?? args.find((value) => value?.querySelector);
+  const form = root?.querySelector?.("[data-demon-form]");
+  if (!form) return;
+  const classSelect = form.querySelector("[data-demon-class]");
+  const profileSelect = form.querySelector("[data-demon-profile]");
+  let previousClass = classSelect.value;
+  const refresh = () => {
+    const classKey = classSelect.value;
+    const customClass = classKey === CUSTOM_DEMON_CLASS;
+    form.querySelector("[data-standard-summary]").hidden = customClass;
+    form.querySelector("[data-custom-stats]").hidden = !customClass;
+    const template = CWN_DEMON_TEMPLATES[classKey];
+    form.querySelector("[data-class-summary]").textContent = template
+      ? `HP ${template.hp}/${template.hp} · Skill +${template.skill} · ${template.lines} command lines`
+      : "Custom statistics";
+    const profile = profileSelect.value;
+    const profileName = profile === CUSTOM_PROGRAMMING_PROFILE
+      ? "Custom Programming"
+      : profile;
+    const preview = form.querySelector("[data-profile-preview]");
+    preview.replaceChildren();
+    for (const key of CWN_DEMON_PROGRAMMING_PROFILES[profileName] ?? []) {
+      const item = document.createElement("li");
+      const command = CWN_COMMON_COMMAND_LINES[key];
+      const text = document.createElement("span");
+      text.textContent = command?.text ?? key;
+      item.append(text);
+      if (form.dataset.nodeId && form.dataset.demonId && command?.actionKey) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = DEMON_ACTIONS[command.actionKey]?.label ?? "Run";
+        button.addEventListener("click", () =>
+          executeStoredDemonAction(
+            networkConsoleApp,
+            form.dataset.nodeId,
+            form.dataset.demonId,
+            command.actionKey,
+          ));
+        item.append(button);
+      }
+      preview.append(item);
+    }
+    if (!preview.children.length) {
+      const item = document.createElement("li");
+      item.textContent = "No profile lines; enter controlled custom programming below.";
+      preview.append(item);
+    }
+    form.querySelector("[data-custom-commands]").hidden =
+      profile !== CUSTOM_PROGRAMMING_PROFILE;
+  };
+  classSelect.addEventListener("change", () => {
+    if (previousClass === CUSTOM_DEMON_CLASS &&
+        classSelect.value !== CUSTOM_DEMON_CLASS &&
+        !window.confirm("Switching to a standard class will use its fixed statistics. Continue?")) {
+      classSelect.value = previousClass;
+      return;
+    }
+    previousClass = classSelect.value;
+    refresh();
+  });
+  profileSelect.addEventListener("change", refresh);
+  refresh();
 }
 
 function watchdogFromForm(data, id) {

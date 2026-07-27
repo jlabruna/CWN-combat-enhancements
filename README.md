@@ -63,7 +63,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.11.0.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.12.0.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -151,7 +151,8 @@ Enable **Experimental Network Console** under **Configure Settings > CWN Combat
 Enhancements**, then reload the world. Open it from the network icon in the
 Token controls or from the module's settings submenu.
 
-Version 0.11.0 turns the GM console into a visual network editor while retaining
+Version 0.12.0 turns the GM console into a visual network editor and a
+GM-controlled Demon encounter runner while retaining
 the existing Journal storage, player projection, sockets, and program-request
 validation:
 
@@ -168,14 +169,30 @@ collapsed keyboard/admin fallbacks, and the original Add Connection dialog is
 still available.
 
 The Demon selector uses the CWN table exactly: Tripwire, Mastiff, Siren,
-Cataphract, Ogre, Headsman, Hydra, and Nemesis. It stores the class's command
-line limit, HP, skill bonus, and cost, plus editable encounter state, prioritized
-commands, and a display-only current Verb + Subject. Zero HP is shown as
-**Fragged**. This console does not execute Demon programs or run a reboot timer.
+Cataphract, Ogre, Headsman, Hydra, and Nemesis, plus a validated **Custom
+Demon** option. Standard classes keep their fixed HP, skill, command-line limit,
+and cost. Programming is separate from class and offers Bouncer, Patroller,
+Gatekeeper, Shieldbearer, Repairman, Trapper, Executioner, and Custom
+Programming profiles. Profile commands are shown in priority order; GMs can add
+controlled Common Command Lines without losing profile defaults.
 
-The schema is version 2. Old string datafiles, Demons, and Watchdogs are
+Expand a Demon in the right inspector to change HP/state, reveal it, apply
+damage, restore it, or trigger its rule-aware command buttons. Supported
+actions include confirmed Alert, Send Message, Reboot, and Move workflows;
+Demon-side opposed rolls for Stun, Paralyze, and Kill Avatar; and clear
+GM-guidance cards for commands whose complete encounter state is not tracked.
+The module never chooses a priority or action automatically. Zero HP marks the
+Demon **Fragged** and disables its actions; no reboot timer is run.
+
+Node Description and Private GM Notes now live behind the inspector's
+**Details/Notes** button. The main inspector order is node essentials, Demons,
+Datafiles, then Watchdogs. Network Console window size and position are stored
+as a client setting and restored within the current viewport.
+
+The schema is version 3. Old string datafiles, Demons, and Watchdogs are
 preserved as hidden structured legacy entries, and old nodes receive one
-persisted automatic layout. Migration only updates the module's network flag.
+persisted automatic layout. Legacy Verb/Subject choices and free-text commands
+are preserved as legacy programming lines. Migration only updates the module's network flag.
 The full network remains in a GM-only Journal Entry. Players receive a sanitized
 projection containing only revealed nodes, connections, entity names and
 player-safe datafile fields. Positions are included only for revealed nodes.
@@ -193,13 +210,12 @@ when the Verb's allowed target types do not match the selected Subject. The GM
 receives the hacker, cyberdeck, combined program, Access cost, check modifier,
 and selected node.
 
-These requests are still a visualization and table-communication aid. The
-prototype does not yet:
+The encounter controls remain deliberately GM-directed. The console does not:
 
-- roll Program checks or resolve defensive programs;
+- autonomously execute Demon priorities or resolve the player's opposed roll;
 - spend Access or CPU;
-- automate Alert the Network;
-- execute Demon or Watchdog actions;
+- track avatar locations, cybercombat initiative, or one-hour Demon reboots;
+- create or automate Watchdog actors;
 - enforce server limits or limit a published network to a designated player.
 
 The saved network schema already reserves an authorization list so
@@ -264,6 +280,15 @@ target for manual resolution and does not apply damage automatically.
   buttons remain available for GM corrections or exceptional rules.
 
 ## Changes
+
+### 0.12.0
+
+- Added source-backed Demon programming profiles, controlled Common Command
+  Lines, Custom Demons, schema-v3 migration, and expandable inspector controls.
+- Added GM-triggered, rule-aware Demon actions, target validation, chat cards,
+  Alert and movement state changes, and confirmed Demon damage handling.
+- Moved node details behind a compact dialog and added client-specific Network
+  Console geometry persistence.
 
 ### 0.11.0
 

@@ -222,6 +222,7 @@
                     <button type="button" data-action="toggleNodeReveal" data-node-id="{{selectedNode.id}}" title="Reveal or hide"><i class="fa-solid {{#if selectedNode.revealed}}fa-eye{{else}}fa-eye-slash{{/if}}"></i></button>
                     <button type="button" data-action="connectSelectedNode" data-node-id="{{selectedNode.id}}" title="Connect selected node"><i class="fa-solid fa-link"></i></button>
                     <button type="button" data-action="duplicateNode" data-node-id="{{selectedNode.id}}" title="Duplicate"><i class="fa-solid fa-clone"></i></button>
+                    <button type="button" data-action="editNodeDetails" data-node-id="{{selectedNode.id}}" title="Details and notes"><i class="fa-solid fa-note-sticky"></i></button>
                     <button type="button" class="danger" data-action="deleteNode" data-node-id="{{selectedNode.id}}" title="Delete"><i class="fa-solid fa-trash"></i></button>
                   </div>
                   <form class="cwnce-inspector-form" data-node-id="{{selectedNode.id}}">
@@ -229,10 +230,57 @@
                     <label>Device Type<select name="type">{{#each nodeTypeOptions}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>
                     <label>Operational State<select name="state">{{#each nodeStateOptions}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{label}}</option>{{/each}}</select></label>
                     <label class="checkbox"><input type="checkbox" name="revealed" {{#if selectedNode.revealed}}checked{{/if}}> Revealed to players</label>
-                    <label>Description<textarea name="description" rows="3">{{selectedNode.description}}</textarea></label>
-                    <label>Private GM Notes<textarea name="gmNotes" rows="3">{{selectedNode.gmNotes}}</textarea></label>
                     <button type="button" data-action="saveNodeInspector"><i class="fa-solid fa-floppy-disk"></i> Save Node</button>
                   </form>
+
+                  <section class="cwnce-structured-section">
+                    <div class="section-heading"><h3>Demons</h3><button type="button" data-action="addDemon" data-node-id="{{selectedNode.id}}" title="Add Demon"><i class="fa-solid fa-plus"></i></button></div>
+                    {{#each selectedNode.demons}}
+                      <article class="cwnce-structured-entry demon {{#unless revealed}}is-hidden{{/unless}} {{#if isFragged}}is-fragged{{/if}} {{#if expanded}}is-expanded{{/if}}">
+                        <button type="button" class="cwnce-demon-summary" data-action="toggleDemonExpanded" data-demon-id="{{id}}" aria-expanded="{{expanded}}">
+                          <strong><i class="fa-solid fa-ghost"></i> {{name}}</strong>
+                          <small>{{classLabel}} · {{profileLabel}} · HP {{currentHp}}/{{maxHp}} · {{#if isFragged}}FRAGGED{{else}}Active{{/if}}</small>
+                        </button>
+                        <div class="cwnce-demon-row-actions">
+                          <button type="button" data-action="toggleDemonReveal" data-node-id="{{../selectedNode.id}}" data-demon-id="{{id}}" title="Reveal or hide"><i class="fa-solid {{#if revealed}}fa-eye{{else}}fa-eye-slash{{/if}}"></i></button>
+                          <button type="button" data-action="editDemon" data-node-id="{{../selectedNode.id}}" data-demon-id="{{id}}" title="Edit"><i class="fa-solid fa-pen"></i></button>
+                          <button type="button" data-action="duplicateDemon" data-node-id="{{../selectedNode.id}}" data-demon-id="{{id}}" title="Duplicate"><i class="fa-solid fa-clone"></i></button>
+                          <button type="button" data-action="deleteDemon" data-node-id="{{../selectedNode.id}}" data-demon-id="{{id}}" title="Delete"><i class="fa-solid fa-trash"></i></button>
+                        </div>
+                        {{#if expanded}}
+                          <div class="cwnce-demon-expanded">
+                            <div class="cwnce-demon-hp-controls">
+                              <button type="button" data-action="adjustDemonHp" data-node-id="{{../selectedNode.id}}" data-demon-id="{{id}}" data-delta="-1" title="Reduce HP by 1">−</button>
+                              <input type="number" min="0" max="{{maxHp}}" value="{{currentHp}}" data-demon-hp aria-label="Current HP">
+                              <button type="button" data-action="setDemonHp" data-node-id="{{../selectedNode.id}}" data-demon-id="{{id}}">Set HP</button>
+                              <button type="button" data-action="adjustDemonHp" data-node-id="{{../selectedNode.id}}" data-demon-id="{{id}}" data-delta="1" title="Increase HP by 1">+</button>
+                              <button type="button" data-action="applyDemonDamage" data-node-id="{{../selectedNode.id}}" data-demon-id="{{id}}">Apply Damage</button>
+                              <button type="button" data-action="restoreDemon" data-node-id="{{../selectedNode.id}}" data-demon-id="{{id}}">Restore</button>
+                            </div>
+                            <label class="cwnce-demon-state">State
+                              <select data-demon-state data-node-id="{{../selectedNode.id}}" data-demon-id="{{id}}">
+                                <option value="active" {{#unless isFragged}}selected{{/unless}}>Active</option>
+                                <option value="fragged" {{#if isFragged}}selected{{/if}}>Fragged</option>
+                              </select>
+                            </label>
+                            <ol class="cwnce-demon-commands">
+                              {{#each commands}}
+                                <li class="source-{{sourceType}}">
+                                  <span><b>{{priority}}.</b> {{text}} <small>{{sourceType}}</small></span>
+                                  {{#if executable}}
+                                    <button type="button" data-action="executeDemonAction" data-node-id="{{nodeId}}" data-demon-id="{{demonId}}" data-action-key="{{actionKey}}" {{#if ../actionDisabled}}disabled{{/if}}>{{action.label}}</button>
+                                  {{else}}
+                                    <em>Advisory</em>
+                                  {{/if}}
+                                </li>
+                              {{/each}}
+                            </ol>
+                            {{#if notes}}<p class="cwnce-demon-notes"><strong>GM:</strong> {{notes}}</p>{{/if}}
+                          </div>
+                        {{/if}}
+                      </article>
+                    {{/each}}
+                  </section>
 
                   <section class="cwnce-structured-section">
                     <div class="section-heading"><h3>Datafiles</h3><button type="button" data-action="addDatafile" data-node-id="{{selectedNode.id}}" title="Add datafile"><i class="fa-solid fa-plus"></i></button></div>
@@ -242,19 +290,6 @@
                         <button type="button" data-action="toggleDatafileReveal" data-node-id="{{../selectedNode.id}}" data-datafile-id="{{id}}" title="Reveal or hide"><i class="fa-solid {{#if revealed}}fa-eye{{else}}fa-eye-slash{{/if}}"></i></button>
                         <button type="button" data-action="editDatafile" data-node-id="{{../selectedNode.id}}" data-datafile-id="{{id}}" title="Edit"><i class="fa-solid fa-pen"></i></button>
                         <button type="button" data-action="deleteDatafile" data-node-id="{{../selectedNode.id}}" data-datafile-id="{{id}}" title="Delete"><i class="fa-solid fa-trash"></i></button>
-                      </article>
-                    {{/each}}
-                  </section>
-
-                  <section class="cwnce-structured-section">
-                    <div class="section-heading"><h3>Demons</h3><button type="button" data-action="addDemon" data-node-id="{{selectedNode.id}}" title="Add Demon"><i class="fa-solid fa-plus"></i></button></div>
-                    {{#each selectedNode.demons}}
-                      <article class="cwnce-structured-entry demon {{#unless revealed}}is-hidden{{/unless}} {{#if isFragged}}is-fragged{{/if}}">
-                        <div><strong><i class="fa-solid fa-ghost"></i> {{name}}</strong><small>{{class}} · HP {{currentHp}}/{{maxHp}} · Skill +{{skill}} · {{lineLimit}} lines · {{cost}} credits{{#if currentVerb}} · {{currentVerb}} {{currentSubject}}{{/if}}</small></div>
-                        <button type="button" data-action="toggleDemonReveal" data-node-id="{{../selectedNode.id}}" data-demon-id="{{id}}" title="Reveal or hide"><i class="fa-solid {{#if revealed}}fa-eye{{else}}fa-eye-slash{{/if}}"></i></button>
-                        <button type="button" data-action="editDemon" data-node-id="{{../selectedNode.id}}" data-demon-id="{{id}}" title="Edit"><i class="fa-solid fa-pen"></i></button>
-                        <button type="button" data-action="duplicateDemon" data-node-id="{{../selectedNode.id}}" data-demon-id="{{id}}" title="Duplicate"><i class="fa-solid fa-clone"></i></button>
-                        <button type="button" data-action="deleteDemon" data-node-id="{{../selectedNode.id}}" data-demon-id="{{id}}" title="Delete"><i class="fa-solid fa-trash"></i></button>
                       </article>
                     {{/each}}
                   </section>

@@ -85,7 +85,7 @@ test("revealed Demons expose only safe fields", () => {
   network.nodes[0].demons[0].revealed = true;
   assert.deepEqual(
     Object.keys(sanitizeNetworkForPlayers(network).nodes[0].demons[0]).sort(),
-    ["id", "name", "revealed"],
+    ["id", "isFragged", "name", "revealed"],
   );
 });
 
@@ -186,7 +186,7 @@ test("source-backed Demon template populates exact class statistics", () => {
       {
         hp: demon.maxHp,
         current: demon.currentHp,
-        skill: demon.skill,
+        skill: demon.skillBonus,
         lines: demon.lineLimit,
         cost: demon.cost,
       },

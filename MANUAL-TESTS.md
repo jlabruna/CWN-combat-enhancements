@@ -1,11 +1,117 @@
 # Foundry VTT v13 / SWNR 2.3.x manual test checklist
 
-Use a disposable world with CWN Combat Enhancements 0.11.0 enabled. Test with
+Use a disposable world with CWN Combat Enhancements 0.12.0 enabled. Test with
 actor-owned weapon and magazine Items. Give each magazine
 `type: "item"`, `system.uses.consumable: "count"`, positive
 `system.uses.value/max`, and a Magazine Family flag.
 
 Do not claim runtime success until these checks have been completed in Foundry.
+
+## Network Console v0.12 Demon encounters
+
+### Dialog layout
+
+1. Open Add Demon.
+2. Confirm the Name field alignment.
+3. Change every standard class.
+4. Switch to Custom Demon.
+5. Change Programming Profile repeatedly.
+6. Confirm no horizontal field movement.
+7. Resize the dialog narrower and wider.
+
+### Demon classes
+
+8. Confirm every standard class gets its documented HP and skill.
+9. Confirm standard creation hides editable stat fields.
+10. Confirm Custom Demon exposes its stat fields.
+11. Reject invalid Custom Demon HP and skill values.
+12. Create, save, and reopen a standard Demon.
+13. Create, save, and reopen a Custom Demon.
+14. Change current HP on a standard Demon after creation.
+
+### Programming profiles
+
+15. Test Bouncer.
+16. Test Patroller.
+17. Test Gatekeeper.
+18. Test Shieldbearer.
+19. Test Repairman.
+20. Test Trapper.
+21. Test Executioner.
+22. Test Custom Programming.
+23. Confirm the exact profile command lines and priority order.
+24. Add Common Command Lines.
+25. Remove added lines.
+26. Confirm ordering.
+27. Confirm line-limit warning/enforcement.
+28. Open and verify a migrated legacy Demon.
+
+### Right inspector
+
+29. Confirm Description and GM Notes are no longer permanently visible.
+30. Open Details/Notes and edit both fields.
+31. Confirm both values persist.
+32. Confirm Demons appear above Datafiles and Watchdogs.
+33. Expand a Demon.
+34. Change HP.
+35. Apply manual damage.
+36. Change state.
+37. Toggle reveal.
+38. Confirm the node-card Demon indicator.
+39. Duplicate a Demon.
+40. Delete a Demon.
+41. Test multiple independently expanded Demons on one node.
+42. Confirm Fragged styling and action disabling.
+
+### Action buttons
+
+43. Execute every implemented no-roll action.
+44. Execute every implemented fixed-difficulty roll, if any is presented.
+45. Execute Stun, Paralyze, and Kill Avatar Demon-side opposed rolls.
+46. Select valid hacker/avatar targets.
+47. Reject invalid targets.
+48. Cancel target selection safely.
+49. Confirm a hidden Demon produces private GM chat output.
+50. Confirm a revealed Demon can produce public chat output.
+51. Confirm each chat card gives effect/adjudication guidance.
+52. Confirm manual-only commands show guidance rather than an invented roll.
+
+### Alert and movement
+
+53. Test Alert the Network from 0 to 1 to 2.
+54. Confirm cancel does not progress Alert.
+55. Move a Demon through a valid connection.
+56. Reject wrong-way movement.
+57. Block locked-Barrier movement.
+58. Test Pursue guidance.
+
+### Damage from chat
+
+59. Produce a module-generated hacker damage card with structured Demon flags.
+60. Click Apply Damage to Demon as GM.
+61. Select Network, Node, and Demon.
+62. Confirm the displayed damage amount.
+63. Apply the damage.
+64. Confirm HP updates.
+65. Confirm zero HP marks the Demon Fragged.
+66. Confirm unrelated chat messages have no Demon-damage button.
+67. Confirm players cannot apply Demon damage.
+68. Confirm a known target is preselected where available.
+
+### Regression
+
+69. Confirm node dragging still works.
+70. Confirm connection geometry still works.
+71. Confirm Auto Arrange still works.
+72. Resize, close, reopen, refresh, and confirm window geometry persists safely.
+73. Confirm Datafiles still work.
+74. Confirm Watchdogs still work.
+75. Confirm player projections remain sanitized.
+76. Confirm player action requests still work.
+77. Run the magazine reload automated tests.
+78. Confirm ordinary attacks still work.
+79. Confirm Suppressive Fire still works.
+80. Confirm no relevant red console errors.
 
 ## Network Console v0.11 visual editor
 

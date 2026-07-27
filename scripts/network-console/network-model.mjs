@@ -1,21 +1,22 @@
-export const NETWORK_SCHEMA_VERSION = 2;
+import {
+  commandFromCatalog,
+  CUSTOM_DEMON_CLASS,
+  CUSTOM_PROGRAMMING_PROFILE,
+  CWN_COMMON_COMMAND_LINES,
+  CWN_DEMON_PROGRAMMING_PROFILES,
+  CWN_DEMON_TEMPLATES,
+  profileCommands,
+} from "./demon-rules.mjs";
+
+export { CWN_DEMON_TEMPLATES } from "./demon-rules.mjs";
+
+export const NETWORK_SCHEMA_VERSION = 3;
 export const DEFAULT_CANVAS = Object.freeze({
   width: 920,
   height: 500,
   nodeWidth: 180,
   nodeHeight: 132,
   padding: 32,
-});
-
-export const CWN_DEMON_TEMPLATES = Object.freeze({
-  Tripwire: { cost: 5000, lines: 2, hp: 3, skill: 1 },
-  Mastiff: { cost: 10000, lines: 4, hp: 5, skill: 2 },
-  Siren: { cost: 15000, lines: 2, hp: 8, skill: 3 },
-  Cataphract: { cost: 25000, lines: 3, hp: 20, skill: 3 },
-  Ogre: { cost: 50000, lines: 4, hp: 25, skill: 2 },
-  Headsman: { cost: 100000, lines: 4, hp: 30, skill: 3 },
-  Hydra: { cost: 200000, lines: 7, hp: 40, skill: 4 },
-  Nemesis: { cost: 500000, lines: 5, hp: 50, skill: 5 },
 });
 
 // Names match the CWN program Items supplied by SWNR 2.3.0.
@@ -213,17 +214,29 @@ function normalizeDatafile(value, nodeId, index) {
   };
 }
 
-function normalizeCommand(value, demonId, index) {
+function normalizeCommand(value, demonId, index, sourceType = "legacy") {
   if (typeof value === "string") {
     return {
       id: stableLegacyId("command", demonId, index),
+      key: "",
+      priority: index + 1,
       text: text(value),
+      actionKey: "",
+      sourceType,
     };
   }
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const key = text(value.key);
+  const catalog = CWN_COMMON_COMMAND_LINES[key];
   return {
     id: text(value.id, stableLegacyId("command", demonId, index)),
-    text: text(value.text ?? value.command),
+    key: catalog ? key : "",
+    priority: integer(value.priority, index + 1, 1),
+    text: text(value.text ?? value.command, catalog?.text ?? "Legacy command"),
+    actionKey: text(value.actionKey, catalog?.actionKey ?? ""),
+    sourceType: ["profile", "common", "custom", "legacy"].includes(value.sourceType)
+      ? value.sourceType
+      : sourceType,
   };
 }
 
@@ -232,46 +245,92 @@ function normalizeDemon(value, nodeId, index) {
     return {
       id: stableLegacyId("demon", nodeId, index),
       name: text(value, "Legacy Demon"),
-      class: "",
-      currentHp: 0,
-      maxHp: 0,
-      skill: 0,
+      classKey: CUSTOM_DEMON_CLASS,
+      currentHp: 1,
+      maxHp: 1,
+      skillBonus: 0,
       lineLimit: 0,
       cost: 0,
       state: "active",
-      commands: [],
+      programmingProfile: CUSTOM_PROGRAMMING_PROFILE,
+      profileCommandLines: [],
+      additionalCommandLines: [],
+      customCommandLines: [],
       revealed: false,
-      currentVerb: "",
-      currentSubject: "",
       notes: "",
     };
   }
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
-  const className = CWN_DEMON_TEMPLATES[value.class] ? value.class : "";
-  const template = CWN_DEMON_TEMPLATES[className] ?? {};
-  const maxHp = integer(value.maxHp, template.hp ?? 0, 0);
+  const legacyClass = text(value.classKey ?? value.class);
+  const classKey = CWN_DEMON_TEMPLATES[legacyClass]
+    ? legacyClass
+    : CUSTOM_DEMON_CLASS;
+  const template = CWN_DEMON_TEMPLATES[classKey] ?? {};
+  const maxHp = classKey === CUSTOM_DEMON_CLASS
+    ? integer(value.maxHp, 1, 1)
+    : template.hp;
   const currentHp = Math.min(maxHp, integer(value.currentHp, maxHp, 0));
-  const verb = CWN_PROGRAM_VERBS.includes(value.currentVerb) ? value.currentVerb : "";
-  const candidateSubject = CWN_PROGRAM_SUBJECTS.includes(value.currentSubject) ? value.currentSubject : "";
-  const subject = programsAreRulesCompatible(verb, candidateSubject) ? candidateSubject : "";
   const demonId = text(value.id, stableLegacyId("demon", nodeId, index));
-  const commands = (Array.isArray(value.commands) ? value.commands : [])
-    .map((command, commandIndex) => normalizeCommand(command, demonId, commandIndex))
+  const rawProfile = text(value.programmingProfile);
+  const programmingProfile = Object.hasOwn(CWN_DEMON_PROGRAMMING_PROFILES, rawProfile)
+    ? rawProfile
+    : CUSTOM_PROGRAMMING_PROFILE;
+  const storedProfileCommands = Array.isArray(value.profileCommandLines)
+    ? value.profileCommandLines
+        .map((command, commandIndex) =>
+          normalizeCommand(command, demonId, commandIndex, "profile"))
+        .filter(Boolean)
+    : [];
+  const profileCommandLines = storedProfileCommands.length
+    ? storedProfileCommands
+    : profileCommands(programmingProfile, demonId);
+  const additionalCommandLines = (Array.isArray(value.additionalCommandLines)
+    ? value.additionalCommandLines
+    : [])
+    .map((command, commandIndex) =>
+      normalizeCommand(command, demonId, commandIndex, "common"))
     .filter(Boolean);
+  const customCommandLines = (Array.isArray(value.customCommandLines)
+    ? value.customCommandLines
+    : [])
+    .map((command, commandIndex) =>
+      normalizeCommand(command, demonId, commandIndex, "custom"))
+    .filter(Boolean);
+  const legacyCommands = (Array.isArray(value.commands) ? value.commands : [])
+    .map((command, commandIndex) =>
+      normalizeCommand(command, demonId, commandIndex, "legacy"))
+    .filter(Boolean);
+  const legacyVerb = CWN_PROGRAM_VERBS.includes(value.currentVerb) ? value.currentVerb : "";
+  const legacySubject = CWN_PROGRAM_SUBJECTS.includes(value.currentSubject) ? value.currentSubject : "";
+  if (legacyVerb || legacySubject) {
+    legacyCommands.push({
+      id: stableLegacyId("command", demonId, legacyCommands.length),
+      key: "",
+      priority: legacyCommands.length + 1,
+      text: `Legacy current program: ${[legacyVerb, legacySubject].filter(Boolean).join(" ")}`,
+      actionKey: "",
+      sourceType: "legacy",
+    });
+  }
   return {
     id: demonId,
-    name: text(value.name, className || "Demon"),
-    class: className,
+    name: text(value.name, classKey === CUSTOM_DEMON_CLASS ? "Custom Demon" : classKey),
+    classKey,
     currentHp,
     maxHp,
-    skill: integer(value.skill, template.skill ?? 0),
-    lineLimit: integer(value.lineLimit, template.lines ?? 0, 0),
+    skillBonus: classKey === CUSTOM_DEMON_CLASS
+      ? integer(value.skillBonus ?? value.skill, 0, -20)
+      : template.skill,
+    lineLimit: classKey === CUSTOM_DEMON_CLASS
+      ? integer(value.lineLimit, 0, 0)
+      : template.lines,
     cost: integer(value.cost, template.cost ?? 0, 0),
     state: currentHp === 0 && maxHp > 0 ? "fragged" : (value.state === "fragged" ? "fragged" : "active"),
-    commands,
+    programmingProfile,
+    profileCommandLines,
+    additionalCommandLines,
+    customCommandLines: [...customCommandLines, ...legacyCommands],
     revealed: bool(value.revealed),
-    currentVerb: verb,
-    currentSubject: subject,
     notes: text(value.notes),
   };
 }
@@ -397,7 +456,12 @@ export function sanitizeNetworkForPlayers(network) {
         })),
       demons: node.demons
         .filter((demon) => demon.revealed)
-        .map(({ id, name, revealed }) => ({ id, name, revealed })),
+        .map(({ id, name, revealed, state, currentHp }) => ({
+          id,
+          name,
+          revealed,
+          isFragged: state === "fragged" || currentHp <= 0,
+        })),
       watchdogs: node.watchdogs
         .filter((watchdog) => watchdog.revealed)
         .map(({ id, name, revealed }) => ({ id, name, revealed })),
@@ -444,18 +508,20 @@ export function createNode({
   }, position);
 }
 
-export function createDemonFromTemplate(className, id) {
+export function createDemonFromTemplate(className, id, programmingProfile = CUSTOM_PROGRAMMING_PROFILE) {
   const template = CWN_DEMON_TEMPLATES[className];
-  if (!template) return null;
+  if (!template && className !== CUSTOM_DEMON_CLASS) return null;
   return normalizeDemon({
     id,
-    name: className,
-    class: className,
-    currentHp: template.hp,
-    maxHp: template.hp,
-    skill: template.skill,
-    lineLimit: template.lines,
-    cost: template.cost,
+    name: className === CUSTOM_DEMON_CLASS ? "Custom Demon" : className,
+    classKey: className,
+    currentHp: template?.hp ?? 1,
+    maxHp: template?.hp ?? 1,
+    skillBonus: template?.skill ?? 0,
+    lineLimit: template?.lines ?? 0,
+    cost: template?.cost ?? 0,
+    programmingProfile,
+    profileCommandLines: profileCommands(programmingProfile, id),
   }, "node", 0);
 }
 
@@ -471,7 +537,17 @@ export function duplicateNode(network, nodeId, newId, bounds = DEFAULT_CANVAS) {
     y: original.position.y + 32,
   }, bounds);
   copy.datafiles = copy.datafiles.map((entry, index) => ({ ...entry, id: `${newId}-datafile-${index}` }));
-  copy.demons = copy.demons.map((entry, index) => ({ ...entry, id: `${newId}-demon-${index}` }));
+  copy.demons = copy.demons.map((entry, index) => {
+    const demonId = `${newId}-demon-${index}`;
+    const demon = { ...entry, id: demonId };
+    for (const collection of ["profileCommandLines", "additionalCommandLines", "customCommandLines"]) {
+      demon[collection] = (demon[collection] ?? []).map((command, commandIndex) => ({
+        ...command,
+        id: `${demonId}-${collection}-${commandIndex}`,
+      }));
+    }
+    return demon;
+  });
   copy.watchdogs = copy.watchdogs.map((entry, index) => ({ ...entry, id: `${newId}-watchdog-${index}` }));
   normalized.nodes.push(copy);
   return { network: normalized, node: copy };

@@ -1,5 +1,31 @@
 # Changelog
 
+## 0.12.0
+
+- Reworked Demon creation around fixed source-backed classes, validated Custom
+  Demons, and separate Common Demon Programming profiles.
+- Added the seven standard programming profiles plus Custom Programming, exact
+  prioritized profile commands, controlled Common Command Line additions,
+  duplicate handling, and command-line limit enforcement.
+- Upgraded Network Console storage to schema version 3 while preserving legacy
+  class fields, Verb/Subject choices, and free-text command lines idempotently.
+- Made expandable Demon entries the primary GM encounter interface with direct
+  HP, state, damage, restore, reveal, duplicate, delete, and command controls.
+- Added a central rule-aware action registry, GM-confirmed no-roll actions,
+  Demon-side opposed Program rolls, validated targets, movement direction and
+  locked-Barrier checks, private/public chat cards, and manual guidance where
+  complete automation would require invented encounter state.
+- Added Alert progress updates, device reboot, Demon movement, Fragged action
+  disabling, and structured GM-only Demon damage application.
+- Moved node Description and Private GM Notes behind a compact Details/Notes
+  dialog and reordered the inspector to show Demons before Datafiles and
+  Watchdogs.
+- Added client-specific, viewport-clamped Network Console window geometry
+  persistence.
+- Added focused Demon rules, migration, projection, permissions, target,
+  movement, alert, damage, and chat-sanitization tests without changing combat,
+  magazine reload, or Suppressive Fire behavior.
+
 ## 0.11.0
 
 - Added a visual GM network editor with an eleven-type draggable node palette,
