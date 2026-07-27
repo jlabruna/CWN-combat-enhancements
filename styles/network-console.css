@@ -774,7 +774,7 @@
 .cwnce-demon-form {
   display: grid;
   gap: 0.45rem;
-  width: min(100%, 640px);
+  width: 100%;
 }
 
 .cwnce-demon-dialog {
@@ -783,6 +783,7 @@
   max-height: calc(100dvh - 2rem) !important;
   max-width: calc(100dvw - 2rem);
   overflow: hidden;
+  width: min(720px, calc(100dvw - 2rem)) !important;
 }
 
 .cwnce-demon-dialog .window-content,

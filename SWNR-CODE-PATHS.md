@@ -40,6 +40,11 @@ accepted as trusted HTML. The scoped defaults live in
 `styles/cwn-combat-enhancements.css`. Optional themes own any suite-specific
 overrides and must not be required by this module.
 
+Version 0.12.4 also emits Foundry/SWNR's `.chat-card.item-card` compatibility
+classes so existing optional themes recognize these cards. Demon rolls use
+standard `.dice-roll`, `.dice-formula`, and `.dice-total` presentation nested
+inside module-owned `__roll` and `__roll-label` elements.
+
 ## Actor AC
 
 `module/data/actors/base-actor.mjs` defines:
@@ -168,8 +173,10 @@ embedded Items before each exact reload. With automatic selection enabled, an
 invalid reference is replaced by the smallest compatible magazine that can fill
 the weapon, or by the compatible magazine with the most rounds when none is
 sufficient. Item-ID ordering breaks otherwise-equal ties. The chosen ID is
-persisted before the existing exact transfer runs; a depleted magazine clears
-the reference while a retained partial magazine remains selected.
+persisted atomically with the existing exact transfer; a depleted magazine
+clears the reference while a retained partial magazine remains selected. This
+avoids asking SWNR to migrate a sparse standalone weapon update before the full
+embedded-document transfer.
 
 SWNR's `SWNActor` and `SWNItem` document classes do not override Foundry's
 embedded update or delete APIs. The module updates the embedded weapon and

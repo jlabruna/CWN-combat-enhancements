@@ -169,7 +169,10 @@ async function reloadFromSelectedMagazine({ application, event, weapon }) {
 
   if (!magazine) {
     if (selectedId) {
-      await weapon.update({ "system.ammo.current": "" });
+      await actor.updateEmbeddedDocuments("Item", [{
+        _id: weapon.id,
+        "system.ammo.current": "",
+      }]);
       updateVisibleMagazineSelector(application, "");
     }
     ui.notifications?.error(
@@ -193,7 +196,6 @@ async function reloadFromSelectedMagazine({ application, event, weapon }) {
 
   try {
     if (selection.automaticallySelected) {
-      await weapon.update({ "system.ammo.current": magazine.id });
       updateVisibleMagazineSelector(application, magazine.id);
     }
     const result = await transferMagazineRounds({ actor, weapon, magazine });

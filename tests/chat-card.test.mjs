@@ -21,7 +21,10 @@ test("reload card publishes shared and reload classes with semantic values", () 
     magazineMaximum: 30,
     automaticallySelected: true,
   });
-  assert.match(html, /class="cwn-ce-chat-card cwn-ce-chat-card--reload"/u);
+  assert.match(
+    html,
+    /class="chat-card item-card cwn-ce-chat-card cwn-ce-chat-card--reload"/u,
+  );
   for (const expected of [
     "Reloaded 8 rounds",
     "Operator",
@@ -42,10 +45,13 @@ test("Network Demon card publishes both modifiers and semantic rows", () => {
     networkName: "City Grid",
     nodeName: "Camera",
     targetName: "Hacker",
-    check: "9 (2d6 + 2)",
-    potentialDamage: "12 (2d10)",
+    checkTotal: 9,
+    checkFormula: "2d6 + 2",
+    damageTotal: 12,
+    damageFormula: "2d10",
     guidance: "Compare opposed checks.",
   });
+  assert.match(html, /class="chat-card item-card /u);
   assert.match(html, /cwn-ce-chat-card--network/u);
   assert.match(html, /cwn-ce-chat-card--demon/u);
   for (const className of [
@@ -55,9 +61,15 @@ test("Network Demon card publishes both modifiers and semantic rows", () => {
     CWN_CE_CHAT_CARD_CLASSES.row,
     CWN_CE_CHAT_CARD_CLASSES.guidance,
     CWN_CE_CHAT_CARD_CLASSES.actions,
+    CWN_CE_CHAT_CARD_CLASSES.roll,
+    CWN_CE_CHAT_CARD_CLASSES.rollLabel,
   ]) {
     assert.match(html, new RegExp(className, "u"));
   }
+  assert.match(html, /class="dice-formula">2d6 \+ 2</u);
+  assert.match(html, /class="dice-total">9</u);
+  assert.match(html, /class="dice-formula">2d10</u);
+  assert.match(html, /class="dice-total">12</u);
 });
 
 test("Demon damage card retains trusted structured flags and damage modifier", () => {
@@ -68,6 +80,7 @@ test("Demon damage card retains trusted structured flags and damage modifier", (
     nodeId: "node",
     demonId: "demon",
   });
+  assert.match(data.content, /class="chat-card item-card /u);
   assert.match(data.content, /cwn-ce-chat-card--damage/u);
   assert.deepEqual(data.flags["cwn-combat-enhancements"].demonDamage, {
     kind: "demon-damage",

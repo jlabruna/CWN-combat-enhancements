@@ -2211,10 +2211,10 @@ async function postDemonActionCard({ network, node, demon, actionKey, target, ro
   const action = DEMON_ACTIONS[actionKey];
   const content = renderDemonActionChatCard({
     ...safe,
-    check: roll ? `${roll.total} (${action.rollFormula})` : "",
-    potentialDamage: damageRoll
-      ? `${damageRoll.total} (${action.damageFormula})`
-      : "",
+    checkTotal: roll?.total ?? "",
+    checkFormula: roll?.formula ?? action.rollFormula ?? "",
+    damageTotal: damageRoll?.total ?? "",
+    damageFormula: damageRoll?.formula ?? action.damageFormula ?? "",
     automated: action.automated,
   });
   const data = {

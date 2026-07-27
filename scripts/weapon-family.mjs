@@ -268,10 +268,10 @@ export async function transferMagazineRounds({ actor, weapon, magazine }) {
   const weaponUpdate = {
     _id: currentWeapon.id,
     "system.ammo.value": transfer.weaponAfter,
+    "system.ammo.current": transfer.magazineAfter === 0
+      ? ""
+      : currentMagazine.id,
   };
-  if (transfer.magazineAfter === 0) {
-    weaponUpdate["system.ammo.current"] = "";
-  }
 
   await actor.updateEmbeddedDocuments("Item", [
     weaponUpdate,

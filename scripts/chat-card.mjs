@@ -16,6 +16,8 @@ export const CWN_CE_CHAT_CARD_CLASSES = Object.freeze({
   result: "cwn-ce-chat-card__result",
   guidance: "cwn-ce-chat-card__guidance",
   actions: "cwn-ce-chat-card__actions",
+  roll: "cwn-ce-chat-card__roll",
+  rollLabel: "cwn-ce-chat-card__roll-label",
 });
 
 export function escapeChatCardText(value) {
@@ -42,6 +44,7 @@ export function renderCwnCeChatCard({
   title = "",
   subtitle = "",
   rows = [],
+  rolls = [],
   result = "",
   guidance = "",
   actionsMarkup = "",
@@ -58,11 +61,26 @@ export function renderCwnCeChatCard({
         <span class="${CWN_CE_CHAT_CARD_CLASSES.value}">${escapeChatCardText(row.value)}</span>
       </div>`)
     .join("");
+  const rollMarkup = rolls
+    .filter((roll) => roll && roll.total !== "" && roll.total != null)
+    .map((roll) => `
+      <section class="${CWN_CE_CHAT_CARD_CLASSES.roll}">
+        <span class="${CWN_CE_CHAT_CARD_CLASSES.rollLabel}">${escapeChatCardText(roll.label)}</span>
+        <div class="roll">
+          <div class="dice-roll">
+            <div class="dice-result">
+              <div class="dice-formula">${escapeChatCardText(roll.formula)}</div>
+              <h4 class="dice-total">${escapeChatCardText(roll.total)}</h4>
+            </div>
+          </div>
+        </div>
+      </section>`)
+    .join("");
   const safeIcon = /^fa-(?:solid|regular|brands) fa-[a-z0-9-]+$/u.test(icon)
     ? `<i class="${icon}" aria-hidden="true"></i>`
     : "";
   return `
-    <article class="${classes}">
+    <article class="chat-card item-card ${classes}">
       <header class="${CWN_CE_CHAT_CARD_CLASSES.header}">
         ${safeIcon}
         <div>
@@ -72,6 +90,7 @@ export function renderCwnCeChatCard({
       </header>
       <div class="${CWN_CE_CHAT_CARD_CLASSES.body}">
         ${rowMarkup}
+        ${rollMarkup}
         ${result ? `<p class="${CWN_CE_CHAT_CARD_CLASSES.result}">${escapeChatCardText(result)}</p>` : ""}
         ${guidance ? `<p class="${CWN_CE_CHAT_CARD_CLASSES.guidance}">${escapeChatCardText(guidance)}</p>` : ""}
       </div>
@@ -118,8 +137,10 @@ export function renderDemonActionChatCard({
   networkName = "",
   nodeName = "",
   targetName = "",
-  check = "",
-  potentialDamage = "",
+  checkTotal = "",
+  checkFormula = "",
+  damageTotal = "",
+  damageFormula = "",
   guidance = "",
   automated = false,
 } = {}) {
@@ -130,8 +151,15 @@ export function renderDemonActionChatCard({
     subtitle: [networkName, nodeName].filter(Boolean).join(" · "),
     rows: [
       { label: "Target", value: targetName },
-      { label: "Check", value: check || "No roll required" },
-      { label: "Potential damage", value: potentialDamage },
+      ...(!checkTotal ? [{ label: "Check", value: "No roll required" }] : []),
+    ],
+    rolls: [
+      ...(checkTotal
+        ? [{ label: "Check", total: checkTotal, formula: checkFormula }]
+        : []),
+      ...(damageTotal
+        ? [{ label: "Potential damage", total: damageTotal, formula: damageFormula }]
+        : []),
     ],
     result: automated
       ? "Supported state change automated."

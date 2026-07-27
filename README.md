@@ -63,7 +63,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.12.3.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.12.4.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -250,6 +250,8 @@ defaults for this stable class contract:
 - `.cwn-ce-chat-card__result`
 - `.cwn-ce-chat-card__guidance`
 - `.cwn-ce-chat-card__actions`
+- `.cwn-ce-chat-card__roll`
+- `.cwn-ce-chat-card__roll-label`
 
 Optional themes may override `--cwn-ce-card-bg`, `--cwn-ce-card-text`,
 `--cwn-ce-card-muted`, `--cwn-ce-card-border`, `--cwn-ce-card-accent`,
@@ -316,6 +318,15 @@ target for manual resolution and does not apply damage automatically.
   buttons remain available for GM corrections or exceptional rules.
 
 ## Changes
+
+### 0.12.4
+
+- Reload and Network Console cards now expose Foundry/SWNR chat-card
+  compatibility hooks so CWN Interface Theme recognizes them.
+- Demon checks and potential damage use familiar dice formula and total
+  presentation.
+- Fixed vertically collapsed reload labels, unthemed readability, automatic
+  reload migration errors, and Demon dialog width growth.
 
 ### 0.12.3
 

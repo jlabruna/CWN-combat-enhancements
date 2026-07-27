@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.12.4
+
+- Added the standard Foundry/SWNR `.chat-card.item-card` compatibility classes
+  to module-owned reload and Network Console cards so CWN Interface Theme
+  recognizes and themes them.
+- Rendered Demon checks and potential damage with familiar Foundry dice
+  formula and total structures while preserving the existing Roll data.
+- Prevented long reload-card labels from collapsing into vertical text and
+  improved readable neutral colors when no optional theme is enabled.
+- Fixed automatic magazine selection triggering an SWNR sparse-document
+  migration error by persisting the selected magazine reference atomically
+  with the exact reload transfer.
+- Stabilized the Add/Edit Demon dialog width when changing class or programming
+  profile, including when Additional Common Command Lines are expanded.
+
 ## 0.12.3
 
 - Filtered standard Demon Programming Profiles by the selected class's fixed

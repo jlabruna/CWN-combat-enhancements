@@ -1,11 +1,29 @@
 # Foundry VTT v13 / SWNR 2.3.x manual test checklist
 
-Use a disposable world with CWN Combat Enhancements 0.12.3 enabled. Test with
+Use a disposable world with CWN Combat Enhancements 0.12.4 enabled. Test with
 actor-owned weapon and magazine Items. Give each magazine
 `type: "item"`, `system.uses.consumable: "count"`, positive
 `system.uses.value/max`, and a Magazine Family flag.
 
 Do not claim runtime success until these checks have been completed in Foundry.
+
+## v0.12.4 focused regression checks
+
+1. With CWN Interface Theme enabled, create a reload card and confirm its
+   background, text, border, and accent follow the active theme.
+2. Confirm the automatic-selection label reads horizontally.
+3. Run Stun Avatar and Kill Avatar and confirm check and damage results use
+   normal formula/total blocks comparable to an SWNR attack card.
+4. Disable CWN Interface Theme, create one reload and one Demon-action card,
+   and confirm all text remains readable.
+5. Re-enable CWN Interface Theme and confirm newly created cards are themed.
+6. Automatically select a compatible magazine and reload. Confirm the reload
+   succeeds, the selector updates, and no SWNWeapon `rating` migration error is
+   logged.
+7. Repeat with a partially retained magazine and a depleted/deleted magazine.
+8. In Add Demon, switch from a larger class/profile back to Tripwire and expand
+   Additional Common Command Lines. Confirm the dialog width remains stable and
+   its body scrolls without excessive blank padding.
 
 ## v0.12.3 Programming Profile compatibility
 

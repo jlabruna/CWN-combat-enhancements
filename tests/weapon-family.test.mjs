@@ -157,6 +157,7 @@ test("22/30 weapon plus 30/30 magazine transfers 8 and retains 22", async () => 
   assert.equal(m.system.uses.value, 22);
   assert.deepEqual(actor.deleted, []);
   assert.equal(w.system.ammo.current, m.id);
+  assert.equal(actor.updateBatches[0][0]["system.ammo.current"], m.id);
 });
 
 test("0/30 weapon plus 30/30 magazine fills and deletes the depleted item", async () => {
@@ -172,6 +173,7 @@ test("0/30 weapon plus 30/30 magazine fills and deletes the depleted item", asyn
   assert.equal(m.system.uses.value, 0);
   assert.deepEqual(actor.deleted, [m.id]);
   assert.equal(actor.items.has(m.id), false);
+  assert.equal(actor.updateBatches[0][0]["system.ammo.current"], "");
 });
 
 test("0/30 weapon plus 8/30 magazine transfers 8 and deletes it", async () => {
