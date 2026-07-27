@@ -63,7 +63,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.12.0.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.12.1.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -280,6 +280,16 @@ target for manual resolution and does not apply damage automatically.
   buttons remain available for GM corrections or exceptional rules.
 
 ## Changes
+
+### 0.12.1
+
+- Fixed newly added and edited Demons not reaching the Network Journal because
+  the submitted `classKey` field was checked under the obsolete `class` name.
+- Demon submissions now save against the canonical node, await Journal and
+  player-projection persistence, reject duplicate submission, and report
+  failures without silently closing as if the save succeeded.
+- The Add/Edit Demon dialog now stays within the browser viewport and scrolls
+  its form body while keeping its action footer accessible.
 
 ### 0.12.0
 

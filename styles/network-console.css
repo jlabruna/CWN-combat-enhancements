@@ -777,6 +777,37 @@
   width: min(100%, 640px);
 }
 
+.cwnce-demon-dialog {
+  max-height: calc(100dvh - 2rem) !important;
+  max-width: calc(100dvw - 2rem);
+}
+
+.cwnce-demon-dialog > form,
+.cwnce-demon-dialog .window-content {
+  min-height: 0;
+}
+
+.cwnce-demon-dialog > form {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cwnce-demon-dialog .window-content,
+.cwnce-demon-dialog .dialog-content {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.cwnce-demon-dialog .form-footer {
+  position: sticky;
+  z-index: 2;
+  bottom: 0;
+  flex: 0 0 auto;
+  background: var(--color-cool-5-90, rgb(11 27 35 / 96%));
+}
+
 .cwnce-demon-form .form-group {
   display: grid;
   grid-template-columns: minmax(130px, 0.42fr) minmax(0, 1fr);

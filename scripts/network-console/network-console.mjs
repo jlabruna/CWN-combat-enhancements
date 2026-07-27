@@ -14,6 +14,8 @@ import {
   duplicateNode,
   NETWORK_SCHEMA_VERSION,
   normalizeNetwork,
+  persistDemonToNode,
+  replaceDemonOnNode,
   sanitizeNetworkForPlayers,
 } from "./network-model.mjs";
 import {
@@ -693,10 +695,20 @@ function formDataObject(form) {
   return result;
 }
 
-async function waitForFormDialog({ title, content, saveLabel = "Save", render = null }) {
+async function waitForFormDialog({
+  title,
+  content,
+  saveLabel = "Save",
+  render = null,
+  dialogClass = "",
+  onSubmit = null,
+  failureMessage = "The requested change could not be saved.",
+}) {
   return foundry.applications.api.DialogV2.wait({
+    classes: ["cwnce-network-form-dialog", dialogClass].filter(Boolean),
+    form: { closeOnSubmit: !onSubmit },
     window: { title },
-    content: `<form class="standard-form cwnce-network-dialog">${content}</form>`,
+    content: `<div class="standard-form cwnce-network-dialog">${content}</div>`,
     render,
     buttons: [
       {
@@ -704,13 +716,35 @@ async function waitForFormDialog({ title, content, saveLabel = "Save", render = 
         label: saveLabel,
         icon: "fa-solid fa-floppy-disk",
         default: true,
-        callback: (_event, button) => formDataObject(button.form),
+        callback: async (event, button, dialog) => {
+          if (button.dataset.cwnceSubmitting === "true") return false;
+          const data = formDataObject(button.form);
+          if (!onSubmit) return data;
+          button.dataset.cwnceSubmitting = "true";
+          button.disabled = true;
+          try {
+            const result = await onSubmit(data, { event, button, dialog });
+            if (result === false) return false;
+            await dialog.close();
+            return result;
+          } catch (error) {
+            console.error(`${MODULE_ID} | ${failureMessage}`, error);
+            ui.notifications.error(failureMessage);
+            return false;
+          } finally {
+            delete button.dataset.cwnceSubmitting;
+            button.disabled = false;
+          }
+        },
       },
       {
         action: "cancel",
         label: "Cancel",
         icon: "fa-solid fa-xmark",
-        callback: () => null,
+        callback: async (_event, _button, dialog) => {
+          if (onSubmit) await dialog.close();
+          return null;
+        },
       },
     ],
     close: () => null,
@@ -1728,41 +1762,77 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
   static async addDemon(_event, target) {
     if (!game.user.isGM) return;
     const journal = getActiveNetworkDocument();
+    const nodeId = target.dataset.nodeId;
     const network = getNetworkData(journal);
-    const node = findNode(network, target.dataset.nodeId);
+    const node = findNode(network, nodeId);
     if (!journal || !network || !node) return;
-    const data = await waitForFormDialog({
+    const journalId = journal.id;
+    await waitForFormDialog({
       title: "Add Demon",
       saveLabel: "Add Demon",
       content: demonDialogContent(),
       render: initializeDemonDialog,
+      dialogClass: "cwnce-demon-dialog",
+      failureMessage: "The Demon could not be saved. The dialog remains open.",
+      onSubmit: async (data) => {
+        if (!data?.classKey) {
+          ui.notifications.warn("Select a Demon class.");
+          return false;
+        }
+        const demon = demonFromForm(data, foundry.utils.randomID());
+        if (!demon) return false;
+        const canonicalJournal = game.journal.get(journalId);
+        if (!canonicalJournal) throw new Error(`Network Journal ${journalId} is no longer available.`);
+        await persistDemonToNode({
+          loadNetwork: () => getNetworkData(canonicalJournal),
+          saveNetwork: (updatedNetwork) => saveNetwork(canonicalJournal, updatedNetwork),
+          nodeId,
+          demon,
+        });
+        this.selectedNodeId = nodeId;
+        this.selectedConnectionId = null;
+        this.render();
+        return true;
+      },
     });
-    if (!data?.class) return;
-    const demon = demonFromForm(data, foundry.utils.randomID());
-    if (!demon) return;
-    node.demons.push(demon);
-    await saveNetwork(journal, network);
-    this.render();
   }
 
   static async editDemon(_event, target) {
     if (!game.user.isGM) return;
     const journal = getActiveNetworkDocument();
+    const journalId = journal?.id;
+    const nodeId = target.dataset.nodeId;
+    const demonId = target.dataset.demonId;
     const network = getNetworkData(journal);
-    const node = findNode(network, target.dataset.nodeId);
-    const index = node?.demons.findIndex((entry) => entry.id === target.dataset.demonId);
+    const node = findNode(network, nodeId);
+    const index = node?.demons.findIndex((entry) => entry.id === demonId);
     if (!journal || !network || !node || index < 0) return;
-    const data = await waitForFormDialog({
+    const original = node.demons[index];
+    await waitForFormDialog({
       title: `Edit ${node.demons[index].name}`,
       content: demonDialogContent(node.demons[index], node.id),
       render: initializeDemonDialog,
+      dialogClass: "cwnce-demon-dialog",
+      failureMessage: "The Demon changes could not be saved. The dialog remains open.",
+      onSubmit: async (data) => {
+        if (!data?.classKey) {
+          ui.notifications.warn("Select a Demon class.");
+          return false;
+        }
+        const demon = demonFromForm(data, demonId, original);
+        if (!demon) return false;
+        const canonicalJournal = game.journal.get(journalId);
+        if (!canonicalJournal) throw new Error(`Network Journal ${journalId} is no longer available.`);
+        const canonicalNetwork = getNetworkData(canonicalJournal);
+        const result = replaceDemonOnNode(canonicalNetwork, nodeId, demonId, demon);
+        if (!result.replaced) throw new Error(`Could not edit Demon: ${result.reason}.`);
+        await saveNetwork(canonicalJournal, result.network);
+        this.selectedNodeId = nodeId;
+        this.selectedConnectionId = null;
+        this.render();
+        return true;
+      },
     });
-    if (!data?.class) return;
-    const demon = demonFromForm(data, node.demons[index].id, node.demons[index]);
-    if (!demon) return;
-    node.demons[index] = demon;
-    await saveNetwork(journal, network);
-    this.render();
   }
 
   static async duplicateDemon(_event, target) {

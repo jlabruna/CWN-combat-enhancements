@@ -525,6 +525,59 @@ export function createDemonFromTemplate(className, id, programmingProfile = CUST
   }, "node", 0);
 }
 
+export function appendDemonToNode(network, nodeId, demon) {
+  const normalized = normalizeNetwork(network);
+  const node = normalized.nodes.find((entry) => entry.id === nodeId);
+  if (!node) return { network: normalized, demon: null, added: false, reason: "missing-node" };
+  if (!demon || typeof demon !== "object" || Array.isArray(demon)) {
+    return { network: normalized, demon: null, added: false, reason: "invalid-demon" };
+  }
+  if (node.demons.some((entry) => entry.id === demon.id)) {
+    return { network: normalized, demon: null, added: false, reason: "duplicate-demon" };
+  }
+  node.demons.push(demon);
+  const saved = normalizeNetwork(normalized);
+  return {
+    network: saved,
+    demon: saved.nodes.find((entry) => entry.id === nodeId)?.demons.at(-1) ?? null,
+    added: true,
+    reason: "",
+  };
+}
+
+export function replaceDemonOnNode(network, nodeId, demonId, demon) {
+  const normalized = normalizeNetwork(network);
+  const node = normalized.nodes.find((entry) => entry.id === nodeId);
+  const index = node?.demons.findIndex((entry) => entry.id === demonId) ?? -1;
+  if (!node || index < 0) {
+    return { network: normalized, demon: null, replaced: false, reason: "missing-demon" };
+  }
+  if (!demon || typeof demon !== "object" || Array.isArray(demon)) {
+    return { network: normalized, demon: null, replaced: false, reason: "invalid-demon" };
+  }
+  node.demons[index] = { ...demon, id: demonId };
+  const saved = normalizeNetwork(normalized);
+  return {
+    network: saved,
+    demon: saved.nodes.find((entry) => entry.id === nodeId)?.demons
+      .find((entry) => entry.id === demonId) ?? null,
+    replaced: true,
+    reason: "",
+  };
+}
+
+export async function persistDemonToNode({
+  loadNetwork,
+  saveNetwork,
+  nodeId,
+  demon,
+}) {
+  const result = appendDemonToNode(await loadNetwork(), nodeId, demon);
+  if (!result.added) throw new Error(`Could not add Demon: ${result.reason}.`);
+  await saveNetwork(result.network);
+  return result;
+}
+
 export function duplicateNode(network, nodeId, newId, bounds = DEFAULT_CANVAS) {
   const normalized = normalizeNetwork(network);
   const original = normalized.nodes.find((node) => node.id === nodeId);

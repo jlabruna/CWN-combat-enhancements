@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
+  appendDemonToNode,
   connectionExists,
   createDemonFromTemplate,
   createNode,
@@ -9,6 +10,7 @@ import {
   duplicateNode,
   isValidPosition,
   normalizeNetwork,
+  persistDemonToNode,
   sanitizeNetworkForPlayers,
 } from "../scripts/network-console/network-model.mjs";
 
@@ -194,4 +196,178 @@ test("source-backed Demon template populates exact class statistics", () => {
       className,
     );
   }
+});
+
+function demonNetwork() {
+  return normalizeNetwork({
+    schemaVersion: 3,
+    id: "demon-network",
+    name: "Demon Test",
+    nodes: [
+      { id: "node-a", name: "Alpha", demons: [] },
+      { id: "node-b", name: "Beta", demons: [] },
+    ],
+    connections: [],
+  });
+}
+
+test("a standard Demon is added to an empty node with class defaults", () => {
+  const demon = createDemonFromTemplate("Tripwire", "tripwire", "Bouncer");
+  const result = appendDemonToNode(demonNetwork(), "node-a", demon);
+  assert.equal(result.added, true);
+  assert.deepEqual(
+    result.network.nodes[0].demons.map(({ id, classKey, currentHp, maxHp, skillBonus }) =>
+      ({ id, classKey, currentHp, maxHp, skillBonus })),
+    [{
+      id: "tripwire",
+      classKey: "Tripwire",
+      currentHp: 3,
+      maxHp: 3,
+      skillBonus: 1,
+    }],
+  );
+});
+
+test("a Custom Demon preserves entered encounter values when added", () => {
+  const result = appendDemonToNode(demonNetwork(), "node-a", {
+    id: "custom",
+    classKey: "custom",
+    name: "Glass Spider",
+    currentHp: 7,
+    maxHp: 11,
+    skillBonus: 4,
+    programmingProfile: "custom",
+    profileCommandLines: [],
+    additionalCommandLines: [],
+    customCommandLines: [{
+      id: "custom-line",
+      priority: 1,
+      text: "Guard the archive.",
+      sourceType: "custom",
+    }],
+    revealed: true,
+    notes: "Private",
+  });
+  assert.equal(result.added, true);
+  assert.deepEqual(
+    {
+      name: result.demon.name,
+      currentHp: result.demon.currentHp,
+      maxHp: result.demon.maxHp,
+      skillBonus: result.demon.skillBonus,
+      revealed: result.demon.revealed,
+      notes: result.demon.notes,
+    },
+    {
+      name: "Glass Spider",
+      currentHp: 7,
+      maxHp: 11,
+      skillBonus: 4,
+      revealed: true,
+      notes: "Private",
+    },
+  );
+});
+
+test("adding a second Demon retains the first", () => {
+  const first = appendDemonToNode(
+    demonNetwork(),
+    "node-a",
+    createDemonFromTemplate("Tripwire", "first", "Bouncer"),
+  );
+  const second = appendDemonToNode(
+    first.network,
+    "node-a",
+    createDemonFromTemplate("Mastiff", "second", "Gatekeeper"),
+  );
+  assert.deepEqual(second.network.nodes[0].demons.map((demon) => demon.id), ["first", "second"]);
+});
+
+test("Demons are added only to their canonical node IDs", () => {
+  let network = appendDemonToNode(
+    demonNetwork(),
+    "node-a",
+    createDemonFromTemplate("Tripwire", "first", "Bouncer"),
+  ).network;
+  network = appendDemonToNode(
+    network,
+    "node-b",
+    createDemonFromTemplate("Mastiff", "second", "Gatekeeper"),
+  ).network;
+  assert.deepEqual(network.nodes.map((node) => node.demons.map((demon) => demon.id)), [
+    ["first"],
+    ["second"],
+  ]);
+});
+
+test("profile and additional command lines survive added-Demon normalization", () => {
+  const demon = createDemonFromTemplate("Hydra", "hydra", "Bouncer");
+  demon.additionalCommandLines.push({
+    id: "additional",
+    key: "reboot-device",
+    priority: 3,
+    text: "Reboot a deactivated device on this node and message the Watchdogs.",
+    actionKey: "reboot-device",
+    sourceType: "common",
+  });
+  const result = appendDemonToNode(demonNetwork(), "node-a", demon);
+  assert.equal(result.demon.programmingProfile, "Bouncer");
+  assert.deepEqual(result.demon.profileCommandLines.map((line) => line.key), [
+    "stun-avatar",
+    "alert-repelled",
+  ]);
+  assert.deepEqual(result.demon.additionalCommandLines.map((line) => line.key), [
+    "reboot-device",
+  ]);
+});
+
+test("save failure rejects instead of reporting a successful Demon submission", async () => {
+  let saveAttempts = 0;
+  await assert.rejects(
+    persistDemonToNode({
+      loadNetwork: () => demonNetwork(),
+      saveNetwork: async () => {
+        saveAttempts += 1;
+        throw new Error("Journal update failed");
+      },
+      nodeId: "node-a",
+      demon: createDemonFromTemplate("Tripwire", "tripwire", "Bouncer"),
+    }),
+    /Journal update failed/,
+  );
+  assert.equal(saveAttempts, 1);
+});
+
+test("repeated submission of the same Demon ID cannot create a duplicate", async () => {
+  let stored = demonNetwork();
+  let saves = 0;
+  const demon = createDemonFromTemplate("Tripwire", "stable-id", "Bouncer");
+  const options = {
+    loadNetwork: () => stored,
+    saveNetwork: async (network) => {
+      stored = network;
+      saves += 1;
+    },
+    nodeId: "node-a",
+    demon,
+  };
+  await persistDemonToNode(options);
+  await assert.rejects(persistDemonToNode(options), /duplicate-demon/);
+  assert.equal(stored.nodes[0].demons.length, 1);
+  assert.equal(saves, 1);
+});
+
+test("legacy network normalization retains newly added schema-v3 Demons", () => {
+  const network = legacyNetwork({
+    nodes: [{
+      id: "node-1",
+      name: "Archive",
+      demons: [createDemonFromTemplate("Mastiff", "schema-v3-demon", "Gatekeeper")],
+    }],
+  });
+  const demon = normalizeNetwork(network).nodes[0].demons[0];
+  assert.deepEqual(
+    [demon.id, demon.classKey, demon.programmingProfile],
+    ["schema-v3-demon", "Mastiff", "Gatekeeper"],
+  );
 });

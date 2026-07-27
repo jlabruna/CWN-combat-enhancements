@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.12.1
+
+- Fixed Add/Edit Demon silently ignoring submitted forms because the form uses
+  `classKey` while the handlers checked the obsolete `class` field.
+- Reworked Demon submission to re-read the canonical Network Journal and node,
+  await normalization, Journal persistence, and player projection publication,
+  and rerender only after a successful save.
+- Added duplicate-submission protection and clear notification/logging while
+  keeping the dialog open when validation or persistence fails.
+- Constrained the Demon dialog to the current viewport, with a scrollable body
+  and accessible header/footer when profiles, additional lines, custom
+  programming, or notes make the form tall.
+- Added focused persistence, multi-node, normalization, duplicate, and
+  save-failure regression tests without changing combat or ammunition systems.
+
 ## 0.12.0
 
 - Reworked Demon creation around fixed source-backed classes, validated Custom

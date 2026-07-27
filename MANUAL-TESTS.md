@@ -1,11 +1,42 @@
 # Foundry VTT v13 / SWNR 2.3.x manual test checklist
 
-Use a disposable world with CWN Combat Enhancements 0.12.0 enabled. Test with
+Use a disposable world with CWN Combat Enhancements 0.12.1 enabled. Test with
 actor-owned weapon and magazine Items. Give each magazine
 `type: "item"`, `system.uses.consumable: "count"`, positive
 `system.uses.value/max`, and a Magazine Family flag.
 
 Do not claim runtime success until these checks have been completed in Foundry.
+
+## Network Console v0.12.1 critical persistence and dialog patch
+
+### Demon persistence
+
+1. Add a Tripwire with the Bouncer profile to an empty node.
+2. Confirm exactly one Demon appears immediately.
+3. Reselect the node and confirm the Demon remains.
+4. Close and reopen the Network Console.
+5. Reload Foundry with Ctrl+F5.
+6. Restart the world and confirm the Demon remains.
+7. Confirm its Tripwire defaults, Bouncer profile, and commands remain.
+8. Add a second standard Demon without replacing the first.
+9. Add and reopen a Custom Demon with custom HP, skill, programming, reveal,
+   and notes.
+10. Add a Demon to another node and confirm the first node is unchanged.
+11. Edit, duplicate, delete, and reveal a Demon.
+12. Confirm the player-safe projection where a player account is available.
+13. Confirm no relevant red console errors appear.
+
+### Viewport and controls
+
+14. Expand Additional Common Command Lines and confirm the footer stays visible.
+15. Scroll from the first field to the last without moving the whole dialog.
+16. Collapse the section and confirm the body contracts.
+17. Switch through every profile and between standard and Custom Demon.
+18. Enter several Custom Programming lines and multiline Private GM Notes.
+19. Resize the browser shorter and narrower while the dialog is open.
+20. Confirm Add Demon and Cancel remain available and keyboard focus scrolls
+    into view.
+21. Confirm the existing Name-field alignment remains stable.
 
 ## Network Console v0.12 Demon encounters
 
