@@ -264,6 +264,54 @@ export const DEMON_ACTIONS = Object.freeze({
   },
 });
 
+export function demonActionRollBreakdowns(demon = {}, action = {}) {
+  const skillBonus = Number.isFinite(Number(demon.skillBonus))
+    ? Math.trunc(Number(demon.skillBonus))
+    : 0;
+  const actionModifier = Number.isFinite(Number(action.checkModifier))
+    ? Math.trunc(Number(action.checkModifier))
+    : 0;
+  const check = action.rollFormula
+    ? [
+        {
+          label: "CWNCE.Breakdown.DemonSkillBonus",
+          value: skillBonus,
+          modifier: true,
+        },
+        {
+          label: action.label
+            ? `${action.label} modifier`
+            : "CWNCE.Breakdown.DemonActionModifier",
+          value: actionModifier,
+          modifier: true,
+        },
+        {
+          label: "CWNCE.Breakdown.TotalModifier",
+          value: skillBonus + actionModifier,
+          modifier: true,
+          total: true,
+        },
+      ]
+    : [];
+  const damageDice = Math.max(1, skillBonus);
+  const damage = action.damageFormula
+    ? [
+        {
+          label: "CWNCE.Breakdown.DemonSkillBonus",
+          value: skillBonus,
+          modifier: false,
+        },
+        {
+          label: "CWNCE.Breakdown.DamageDiceFromSkill",
+          value: `${damageDice}d10`,
+          modifier: false,
+          total: true,
+        },
+      ]
+    : [];
+  return { check, damage };
+}
+
 export function demonClassView(classKey) {
   return {
     custom: classKey === CUSTOM_DEMON_CLASS,

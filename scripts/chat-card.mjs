@@ -65,7 +65,7 @@ export function renderCwnCeChatCard({
   const rollMarkup = rolls
     .filter((roll) => roll && roll.total !== "" && roll.total != null)
     .map((roll) => `
-      <section class="${CWN_CE_CHAT_CARD_CLASSES.roll}">
+      <section class="${CWN_CE_CHAT_CARD_CLASSES.roll}"${roll.key ? ` data-cwnce-roll="${escapeChatCardText(roll.key)}"` : ""}>
         <span class="${CWN_CE_CHAT_CARD_CLASSES.rollLabel}">${escapeChatCardText(roll.label)}</span>
         ${roll.html || `<div class="roll">
           <div class="dice-roll">
@@ -160,6 +160,7 @@ export function renderDemonActionChatCard({
       ...(checkTotal
         ? [{
             label: "Check",
+            key: "check",
             total: checkTotal,
             formula: checkFormula,
             html: checkRollHtml,
@@ -168,6 +169,7 @@ export function renderDemonActionChatCard({
       ...(damageTotal
         ? [{
             label: "Potential damage",
+            key: "damage",
             total: damageTotal,
             formula: damageFormula,
             html: damageRollHtml,

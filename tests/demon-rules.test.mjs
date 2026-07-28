@@ -12,6 +12,7 @@ import {
   CWN_DEMON_PROGRAMMING_PROFILES,
   CWN_DEMON_TEMPLATES,
   DEMON_ACTIONS,
+  demonActionRollBreakdowns,
   demonClassCommandCapacity,
   demonClassView,
   isProgrammingProfileCompatible,
@@ -337,6 +338,57 @@ test("opposed Demon commands use the exact CWN modifiers and damage formulas", (
     ],
     ["2d6 + @skillBonus", 0, "max(1, @skillBonus)d10"],
   );
+});
+
+test("Demon roll breakdowns identify skill, action modifier, and damage dice", () => {
+  const stun = demonActionRollBreakdowns(
+    { skillBonus: 3 },
+    DEMON_ACTIONS["stun-avatar"],
+  );
+  assert.deepEqual(stun.check.map(({ label, value, total }) => ({
+    label,
+    value,
+    total: Boolean(total),
+  })), [
+    {
+      label: "CWNCE.Breakdown.DemonSkillBonus",
+      value: 3,
+      total: false,
+    },
+    {
+      label: "Stun Avatar modifier",
+      value: 1,
+      total: false,
+    },
+    {
+      label: "CWNCE.Breakdown.TotalModifier",
+      value: 4,
+      total: true,
+    },
+  ]);
+  assert.deepEqual(stun.damage.map(({ label, value, total }) => ({
+    label,
+    value,
+    total: Boolean(total),
+  })), [
+    {
+      label: "CWNCE.Breakdown.DemonSkillBonus",
+      value: 3,
+      total: false,
+    },
+    {
+      label: "CWNCE.Breakdown.DamageDiceFromSkill",
+      value: "3d10",
+      total: true,
+    },
+  ]);
+
+  const paralyze = demonActionRollBreakdowns(
+    { skillBonus: 5 },
+    DEMON_ACTIONS["paralyze-avatar"],
+  );
+  assert.equal(paralyze.check.at(-1).value, 4);
+  assert.deepEqual(paralyze.damage, []);
 });
 
 test("required targets and invalid target types are enforced", () => {

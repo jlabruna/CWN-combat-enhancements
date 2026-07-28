@@ -67,6 +67,8 @@ test("Network Demon card publishes both modifiers and semantic rows", () => {
     assert.match(html, new RegExp(className, "u"));
   }
   assert.match(html, /class="dice-formula">2d6 \+ 2</u);
+  assert.match(html, /data-cwnce-roll="check"/u);
+  assert.match(html, /data-cwnce-roll="damage"/u);
   assert.match(html, /class="dice-total">9</u);
   assert.match(html, /class="dice-formula">2d10</u);
   assert.match(html, /class="dice-total">12</u);

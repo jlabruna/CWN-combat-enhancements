@@ -63,7 +63,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.12.5.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.12.6.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -318,6 +318,13 @@ target for manual resolution and does not apply damage automatically.
   buttons remain available for GM corrections or exceptional rules.
 
 ## Changes
+
+### 0.12.6
+
+- Expanded Demon checks now identify the Demon Skill Bonus, the action-specific
+  modifier, and their total.
+- Expanded Demon damage now identifies the Skill Bonus and resulting number of
+  d10 damage dice.
 
 ### 0.12.5
 

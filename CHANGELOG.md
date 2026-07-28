@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.12.6
+
+- Added labelled modifier breakdowns to expanded Demon checks, identifying the
+  Demon Skill Bonus, action-specific modifier, and total modifier.
+- Added labelled damage breakdowns showing how the Demon Skill Bonus determines
+  the number of d10 damage dice.
+- Stored the breakdown data on each Demon action message so historical cards
+  retain the values used when the action was rolled.
+
 ## 0.12.5
 
 - Replaced the static Demon check and potential-damage summaries with Foundry's

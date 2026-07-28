@@ -30,6 +30,7 @@ import {
   CWN_COMMON_COMMAND_LINES,
   CWN_DEMON_PROGRAMMING_PROFILES,
   DEMON_ACTIONS,
+  demonActionRollBreakdowns,
   demonClassCommandCapacity,
   isProgrammingProfileCompatible,
   nextAlertProgress,
@@ -202,11 +203,16 @@ Hooks.on("deleteJournalEntry", (journal) => {
 });
 
 Hooks.on("renderChatMessageHTML", (message, html) => {
+  const root = html instanceof HTMLElement ? html : html?.[0];
+  if (!root) return;
+  enhanceDemonRollBreakdowns(
+    root,
+    message.getFlag(MODULE_ID, "demonRollBreakdowns"),
+  );
   if (!game.user.isGM) return;
   const flag = message.getFlag(MODULE_ID, "demonDamage");
   if (!isTrustedDemonDamageFlag(flag, true, message.rolls?.[0]?.total ?? null)) return;
-  const root = html instanceof HTMLElement ? html : html?.[0];
-  if (!root || root.querySelector("[data-cwnce-apply-demon-damage]")) return;
+  if (root.querySelector("[data-cwnce-apply-demon-damage]")) return;
   const button = document.createElement("button");
   button.type = "button";
   button.dataset.cwnceApplyDemonDamage = message.id;
@@ -216,6 +222,47 @@ Hooks.on("renderChatMessageHTML", (message, html) => {
     ?? root.querySelector(".message-content");
   actions?.append(button);
 });
+
+function enhanceDemonRollBreakdowns(root, breakdowns) {
+  if (!breakdowns || typeof breakdowns !== "object") return;
+  for (const [kind, entries] of Object.entries({
+    check: breakdowns.check,
+    damage: breakdowns.damage,
+  })) {
+    if (!Array.isArray(entries) || !entries.length) continue;
+    const tooltip = root
+      .querySelector(`[data-cwnce-roll="${kind}"]`)
+      ?.querySelector(".dice-tooltip");
+    if (!tooltip || tooltip.querySelector(".cwnce-modifier-breakdown")) continue;
+    tooltip.append(buildDemonModifierBreakdown(entries));
+  }
+}
+
+function buildDemonModifierBreakdown(entries) {
+  const section = document.createElement("section");
+  section.className = "cwnce-modifier-breakdown";
+  const heading = document.createElement("h4");
+  heading.textContent = game.i18n.localize("CWNCE.Breakdown.Heading");
+  section.append(heading);
+  const list = document.createElement("dl");
+  for (const entry of entries) {
+    if (!entry || typeof entry.label !== "string") continue;
+    const term = document.createElement("dt");
+    term.textContent = game.i18n.localize(entry.label);
+    const value = document.createElement("dd");
+    const numeric = Number(entry.value);
+    value.textContent = entry.modifier && Number.isFinite(numeric)
+      ? `${numeric >= 0 ? "+" : ""}${numeric}`
+      : String(entry.value ?? "");
+    if (entry.total) {
+      term.classList.add("cwnce-breakdown-total");
+      value.classList.add("cwnce-breakdown-total");
+    }
+    list.append(term, value);
+  }
+  section.append(list);
+  return section;
+}
 
 function isNetworkConsoleEnabled() {
   return Boolean(game.settings.get(MODULE_ID, "enableNetworkConsole"));
@@ -2211,6 +2258,7 @@ async function postDemonActionCard({ network, node, demon, actionKey, target, ro
   const action = DEMON_ACTIONS[actionKey];
   const checkRollHtml = roll ? await roll.render() : "";
   const damageRollHtml = damageRoll ? await damageRoll.render() : "";
+  const demonRollBreakdowns = demonActionRollBreakdowns(demon, action);
   const content = renderDemonActionChatCard({
     ...safe,
     checkTotal: roll?.total ?? "",
@@ -2225,6 +2273,11 @@ async function postDemonActionCard({ network, node, demon, actionKey, target, ro
     content,
     rolls: [roll, damageRoll].filter(Boolean),
     speaker: ChatMessage.getSpeaker({ alias: safe.demonName }),
+    flags: {
+      [MODULE_ID]: {
+        demonRollBreakdowns,
+      },
+    },
   };
   if (!demon.revealed || !node.revealed) {
     data.whisper = ChatMessage.getWhisperRecipients("GM").map((user) => user.id);

@@ -1,11 +1,24 @@
 # Foundry VTT v13 / SWNR 2.3.x manual test checklist
 
-Use a disposable world with CWN Combat Enhancements 0.12.5 enabled. Test with
+Use a disposable world with CWN Combat Enhancements 0.12.6 enabled. Test with
 actor-owned weapon and magazine Items. Give each magazine
 `type: "item"`, `system.uses.consumable: "count"`, positive
 `system.uses.value/max`, and a Magazine Family flag.
 
 Do not claim runtime success until these checks have been completed in Foundry.
+
+## v0.12.6 focused regression checks
+
+1. With a Skill Bonus 3 Demon, run Stun Avatar and expand Check.
+2. Confirm the breakdown identifies Demon Skill Bonus +3, Stun Avatar
+   modifier +1, and Total modifier +4.
+3. Expand Potential damage and confirm the breakdown identifies Skill Bonus 3
+   and Damage dice from Skill Bonus 3d10.
+4. Run Paralyze Avatar and confirm its breakdown identifies the -1 action
+   modifier.
+5. Run Kill Avatar and confirm the action modifier is 0 and its damage dice
+   match the Demon Skill Bonus.
+6. Reload Foundry and confirm the same breakdowns remain on the existing cards.
 
 ## v0.12.5 focused regression checks
 

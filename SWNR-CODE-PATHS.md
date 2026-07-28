@@ -49,6 +49,12 @@ Version 0.12.5 places the trusted result of `await Roll.render()` into each
 Demon roll slot. This preserves Foundry's `.dice-tooltip` details and native
 expand/collapse behavior rather than reproducing only the formula and total.
 
+Version 0.12.6 stores a typed modifier breakdown flag on each Demon action
+message. Its render hook appends the same `.cwnce-modifier-breakdown` structure
+used by weapon cards to the matching Check and Potential damage tooltips. Check
+entries identify Skill Bonus, action modifier, and total modifier; damage
+entries identify Skill Bonus and the derived number of d10s.
+
 ## Actor AC
 
 `module/data/actors/base-actor.mjs` defines:
