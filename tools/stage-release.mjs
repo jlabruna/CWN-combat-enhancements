@@ -5,7 +5,11 @@ import { fileURLToPath } from "node:url";
 const moduleRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const releaseRoot = path.join(moduleRoot, "release");
 const stageRoot = path.join(releaseRoot, "cwn-combat-enhancements");
-const browserUploadRoot = path.join(releaseRoot, "github-upload-v0.12.6");
+const browserUploadRoot = path.join(releaseRoot, "github-upload-v0.13.0");
+const browserDotfilesRoot = path.join(
+  releaseRoot,
+  "github-dotfiles-upload-v0.13.0",
+);
 const files = [
   "CHANGELOG.md",
   "LICENSE",
@@ -31,8 +35,8 @@ for (const directory of directories) {
 const manifest = JSON.parse(
   await fs.readFile(path.join(stageRoot, "module.json"), "utf8"),
 );
-if (manifest.version !== "0.12.6") {
-  throw new Error(`Expected module version 0.12.6 but found ${manifest.version}.`);
+if (manifest.version !== "0.13.0") {
+  throw new Error(`Expected module version 0.13.0 but found ${manifest.version}.`);
 }
 if (
   !manifest.download.endsWith(
@@ -85,6 +89,8 @@ for (const filename of [
   "chat-card.mjs",
   "cwn-combat-enhancements.mjs",
   "magazine-reload.mjs",
+  "monthly-expenses-rules.mjs",
+  "monthly-expenses.mjs",
   "suppressive-fire.mjs",
   "weapon-family.mjs",
 ]) {
@@ -111,11 +117,16 @@ await fs.copyFile(
   path.join(moduleRoot, "templates", "network-console", "console.hbs"),
   path.join(browserUploadRoot, "templates", "network-console", "console.hbs"),
 );
+await fs.copyFile(
+  path.join(moduleRoot, "templates", "monthly-expenses.hbs"),
+  path.join(browserUploadRoot, "templates", "monthly-expenses.hbs"),
+);
 for (const filename of [
   "chat-card.test.mjs",
   "network-geometry.test.mjs",
   "network-model.test.mjs",
   "demon-rules.test.mjs",
+  "monthly-expenses.test.mjs",
   "weapon-family.test.mjs",
 ]) {
   await fs.copyFile(
@@ -128,7 +139,21 @@ await fs.copyFile(
   path.join(browserUploadRoot, "tools", "stage-release.mjs"),
 );
 
+await fs.rm(browserDotfilesRoot, { recursive: true, force: true });
+await fs.mkdir(path.join(browserDotfilesRoot, ".github", "workflows"), {
+  recursive: true,
+});
+await fs.copyFile(
+  path.join(moduleRoot, ".github", "workflows", "build-release.yml"),
+  path.join(browserDotfilesRoot, ".github", "workflows", "build-release.yml"),
+);
+await fs.copyFile(
+  path.join(moduleRoot, ".gitignore"),
+  path.join(browserDotfilesRoot, ".gitignore"),
+);
+
 console.log(
   `Staged CWN Combat Enhancements ${manifest.version} at ${stageRoot}. `
-  + `Browser upload files are at ${browserUploadRoot}.`,
+  + `Browser upload files are at ${browserUploadRoot}; hidden paths are at `
+  + `${browserDotfilesRoot}.`,
 );

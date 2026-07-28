@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.13.0
+
+- Added a GM-only Cyberware Maintenance section to native SWNR Cyberware sheets
+  with an upkeep-required toggle, optional base-cost override, calculated
+  monthly upkeep, player-visible status, and update-level permission checks.
+- Added a shared pure calculation engine for five-percent cyberware upkeep,
+  Lifestyle, recurring inventory services, custom expenses, and monthly totals.
+- Added a read-only Monthly Expenses total and prominent dollar-sign management
+  button beside character currency on the Inventory tab.
+- Added a viewport-safe, responsive Monthly Expenses dialog with Lifestyle,
+  cyberware, service, custom-expense, and total-breakdown sections.
+- Added Squatter, Slum, Middle-class, Fine, and Luxury costs and their
+  information-only System Strain modifiers; existing actors remain visibly
+  Unconfigured until explicitly updated.
+- Added metadata, catalogue-key, and conservative normalized-name detection for
+  Smartphone Service Plan and Monthly Bus Pass, including quantity
+  multiplication and location independence.
+- Added stable custom-expense rows with validation, duplicate-ID repair, and
+  owner/GM permissions.
+- Preserved SWNR's native Cyberware Strain behavior and all existing Network
+  Console, Demon, combat, target-check, and physical-magazine features.
+
 ## 0.12.6
 
 - Added labelled modifier breakdowns to expanded Demon checks, identifying the

@@ -1,0 +1,96 @@
+<form class="cwnce-monthly-expenses standard-form">
+  <div class="cwnce-monthly-expenses-body">
+    <section>
+      <h2>{{localize "CWNCE.Expenses.Lifestyle"}}</h2>
+      <div class="form-group">
+        <label>{{localize "CWNCE.Expenses.Lifestyle"}}</label>
+        <div class="form-fields">
+          <select data-lifestyle>
+            {{#each lifestyleOptions}}
+              <option value="{{key}}" {{#if selected}}selected{{/if}}>
+                {{label}} — {{monthlyCost}} / month
+              </option>
+            {{/each}}
+          </select>
+        </div>
+      </div>
+      <p class="hint">
+        {{localize "CWNCE.Expenses.StrainModifier"}}:
+        <strong data-lifestyle-strain>{{calculation.lifestyle.strainModifier}}</strong>.
+        {{localize "CWNCE.Expenses.StrainDisplayOnly"}}
+      </p>
+    </section>
+
+    <section>
+      <h2>{{localize "CWNCE.Expenses.Cyberware"}}</h2>
+      {{#if calculation.cyberware.entries.length}}
+        <div class="cwnce-expense-table">
+          <div class="cwnce-expense-table-header">
+            <span>{{localize "CWNCE.Expenses.Item"}}</span><span>{{localize "CWNCE.Expenses.Basis"}}</span>
+            <span>{{localize "CWNCE.Expenses.MonthlyCost"}}</span>
+          </div>
+          {{#each calculation.cyberware.entries}}
+            <div>
+              <span>{{name}}{{#if disabled}} <em>({{localize "CWNCE.Expenses.Disabled"}})</em>{{/if}}</span>
+              <span>{{#if basisAvailable}}${{basis}}{{else}}—{{/if}}{{#if overrideInUse}} *{{/if}}</span>
+              <span>{{#if required}}${{monthlyCost}}{{else}}{{localize "CWNCE.Expenses.Exempt"}}{{/if}}</span>
+            </div>
+            {{#each warnings}}<p class="cwnce-expense-warning">{{this}}</p>{{/each}}
+          {{/each}}
+        </div>
+      {{else}}
+        <p class="hint">{{localize "CWNCE.Expenses.NoCyberware"}}</p>
+      {{/if}}
+    </section>
+
+    <section>
+      <h2>{{localize "CWNCE.Expenses.Services"}}</h2>
+      {{#if calculation.services.entries.length}}
+        <div class="cwnce-expense-table">
+          <div class="cwnce-expense-table-header">
+            <span>{{localize "CWNCE.Expenses.Item"}}</span><span>{{localize "CWNCE.Expenses.Quantity"}}</span>
+            <span>{{localize "CWNCE.Expenses.MonthlyCost"}}</span>
+          </div>
+          {{#each calculation.services.entries}}
+            <div><span>{{name}}</span><span>{{quantity}} × ${{unitCost}}</span><span>${{subtotal}}</span></div>
+          {{/each}}
+        </div>
+      {{else}}
+        <p class="hint">{{localize "CWNCE.Expenses.NoServices"}}</p>
+      {{/if}}
+    </section>
+
+    <section>
+      <div class="cwnce-expense-heading">
+        <h2>{{localize "CWNCE.Expenses.Custom"}}</h2>
+        <button type="button" data-action="add-expense">
+          <i class="fa-solid fa-plus"></i> {{localize "CWNCE.Expenses.Add"}}
+        </button>
+      </div>
+      <div data-custom-expenses>
+        {{#each calculation.customExpenses}}
+          <div class="cwnce-custom-expense-row" data-expense-row data-expense-id="{{id}}">
+            <input type="text" data-expense-name maxlength="100" value="{{name}}"
+              placeholder="{{localize "CWNCE.Expenses.CustomName"}}">
+            <input type="number" min="0" step="1" data-expense-amount value="{{amount}}">
+            <button type="button" data-action="delete-expense"
+              title="{{localize "CWNCE.Expenses.Delete"}}">
+              <i class="fa-solid fa-trash"></i>
+            </button>
+          </div>
+        {{/each}}
+      </div>
+    </section>
+
+    <section class="cwnce-monthly-breakdown">
+      <h2>{{localize "CWNCE.Expenses.Breakdown"}}</h2>
+      <div><span>{{localize "CWNCE.Expenses.Lifestyle"}}</span><output data-breakdown="lifestyle">{{formatted.lifestyle}}</output></div>
+      <div><span>{{localize "CWNCE.Expenses.Cyberware"}}</span><output data-breakdown="cyberware">{{formatted.cyberware}}</output></div>
+      <div><span>{{localize "CWNCE.Expenses.Services"}}</span><output data-breakdown="services">{{formatted.services}}</output></div>
+      <div><span>{{localize "CWNCE.Expenses.Custom"}}</span><output data-breakdown="custom">{{formatted.custom}}</output></div>
+      <div class="cwnce-monthly-grand-total">
+        <span>{{localize "CWNCE.Expenses.Total"}}</span><output data-breakdown="total">{{formatted.total}}</output>
+      </div>
+    </section>
+  </div>
+</form>

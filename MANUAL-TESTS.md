@@ -1,11 +1,49 @@
 # Foundry VTT v13 / SWNR 2.3.x manual test checklist
 
-Use a disposable world with CWN Combat Enhancements 0.12.6 enabled. Test with
+Use a disposable world with CWN Combat Enhancements 0.13.0 enabled. Test with
 actor-owned weapon and magazine Items. Give each magazine
 `type: "item"`, `system.uses.consumable: "count"`, positive
 `system.uses.value/max`, and a Magazine Family flag.
 
 Do not claim runtime success until these checks have been completed in Foundry.
+
+## v0.13.0 cyberware and Monthly Expenses
+
+1. Open representative Content Pack and custom native Cyberware Items; confirm
+   Cyberware Maintenance appears while native cost, Strain, and fields remain
+   unchanged.
+2. As GM, toggle Requires Monthly Upkeep and enter a valid override; confirm
+   calculated upkeep uses five percent rounded to a whole dollar.
+3. Enter a negative override; confirm it is rejected. Clear both native cost
+   and override on a disposable Item; confirm a visible warning appears.
+4. Confirm a player can see the status but cannot edit the maintenance controls.
+5. Disable cyberware; confirm it still incurs upkeep. Remove it; confirm upkeep
+   and native Cyberware Strain both recalculate through their respective owners.
+6. Open a character Inventory tab; confirm Monthly Expenses appears beside
+   Dollars (Stowed), is read-only, and the large `$` button opens the dialog.
+7. At normal and narrow sheet widths, confirm the summary remains usable.
+8. Test Unconfigured, Squatter ($0/-2), Slum ($300/-1), Middle-class
+   ($1,000/0), Fine ($5,000/+1), and Luxury ($20,000/+2). Confirm the modifier
+   is display-only and does not change SWNR System Strain.
+9. Add several cyberware Items, exemptions, and overrides; confirm the breakdown
+   and total.
+10. Add Content Pack Smartphone Service Plan and Monthly Bus Pass Items. Change
+    quantity and Readied/Stowed location; confirm $10 and $50 per quantity and
+    no location effect.
+11. Test legacy copies named `Smartphone Service Plan — One Month` and
+    `Monthly Bus Pass`; confirm exact normalized fallback without double-count.
+12. Add, edit, and delete custom expenses. Confirm blank names, negative values,
+    and nonnumeric values cannot be saved.
+13. Confirm the sheet total and dialog total agree after add/remove/update,
+    closing and reopening, Ctrl+F5, and a world restart.
+14. With a second client if available, confirm owner changes refresh for the GM
+    and unauthorized users cannot update protected flags.
+15. Confirm the dialog body scrolls within the browser viewport while header,
+    Save, and Cancel remain accessible.
+16. Test with and without CWN Interface Theme and confirm readable layout.
+17. Run representative attack, Burst Fire, Suppressive Fire, exact reload,
+    Network Console, and Demon actions; confirm no regressions or relevant red
+    console errors.
 
 ## v0.12.6 focused regression checks
 

@@ -3,6 +3,26 @@
 This audit was performed against the `v2.3.0` tag (commit
 `551564ac6aad1f9d143cc8b42e00080c44211602`) of `wintersleepAI/swnr`.
 
+## Cyberware
+
+Native Cyberware Items store `system.cost`, `system.strain`, `system.tl`,
+`system.type`, `system.concealment`, `system.disabled`,
+`system.complication`, `system.effect`, and `system.description`. Foundry
+Active Effects remain in the Item's ordinary `effects` array.
+
+SWNR actor preparation sums the Strain of every actor-owned Cyberware Item.
+Removing the Item reverses that contribution. The native `disabled` field does
+not exclude the Item from this calculation and does not itself suppress an
+embedded Active Effect. No cyberware-specific derived-data handlers,
+item-name handlers, or Active Effects were found in SWNR's native Cyberware
+catalogue.
+
+Consequently, Combat Enhancements treats all actor-owned cyberware as installed
+for monthly upkeep but never writes to native Strain. Content Pack 0.6.0 embeds
+no speculative Active Effects: conditional effects, AC floors, attribute
+minimums, activated abilities, limited-use abilities, and similar rules remain
+classified for contextual, manual, or future handler-based automation.
+
 ## Attack roll
 
 `module/data/items/item-weapon.mjs` defines the `SWNWeapon` item data model.

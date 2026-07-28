@@ -45,6 +45,11 @@ running on **Systems Without Number Redux (SWNR) 2.3.0**.
 - Optionally reloads family-aware weapons from a selected, actor-owned physical
   magazine with the exact same family, preserving partial magazines and deleting
   depleted magazine Items.
+- Adds GM-controlled five-percent monthly upkeep to native SWNR cyberware
+  without altering native Cyberware Strain.
+- Adds a derived **Monthly Expenses** total and management dialog to character
+  Inventory tabs, covering Lifestyle, cyberware maintenance, recurring
+  inventory services, and owner-managed custom expenses.
 
 Ordinary attacks continue to use SWNR's original rolls and loaded-ammunition
 expenditure. The optional magazine feature only replaces the actor-sheet reload
@@ -63,7 +68,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.12.6.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.13.0.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -94,6 +99,42 @@ meters, feet, yards, kilometres, or miles.
   `item.system.uses.consumable === "count"`.
 - Actor-sheet reload action: `SWNActorSheet.DEFAULT_OPTIONS.actions.reload`,
   originally inherited from `SWNBaseSheet._onReload()`.
+
+## Cyberware maintenance and Monthly Expenses
+
+Every actor-owned native SWNR Cyberware Item is treated as installed, matching
+SWNR's current Cyberware Strain calculation. Combat Enhancements does not add an
+Installed checkbox and never writes to native Strain fields.
+
+Cyberware upkeep defaults to required and is five percent of the native Item
+cost, rounded to the nearest whole dollar after multiplication. A GM can exempt
+an Item or provide a non-negative base-cost override in the Cyberware
+Maintenance section of its native sheet. Disabled cyberware remains installed
+and still requires upkeep unless the GM explicitly exempts it. The override is
+stored at:
+
+```text
+flags["cwn-combat-enhancements"].cyberwareMaintenance
+```
+
+The character's Lifestyle and custom expense rows are stored at:
+
+```text
+flags["cwn-combat-enhancements"].monthlyExpenses
+```
+
+Existing actors remain **Unconfigured** until an owner or GM chooses Squatter,
+Slum, Middle-class, Fine, or Luxury. The associated maximum System Strain
+modifier is displayed for reference only and is not applied to SWNR.
+
+Recurring services are detected from Content Pack metadata first, then its
+stable catalogue key, then an exact normalized legacy name. Monthly Bus Pass is
+$50 per owned quantity and Smartphone Service Plan is $10 per owned quantity;
+Readied/Stowed location is ignored. Derived totals are recalculated from current
+actor Items and configuration and are never stored as authoritative data.
+
+Weapon and armor modification Maintenance is intentionally excluded because it
+uses technician capacity and daily work rather than monthly cash expenses.
 
 ## Weapon Families and physical magazines
 
