@@ -41,12 +41,15 @@ jobs:
           unzip -t ../cwn-combat-enhancements-${GITHUB_REF_NAME}.zip
           unzip -Z1 ../cwn-combat-enhancements-${GITHUB_REF_NAME}.zip | grep -qx "module.json"
           unzip -Z1 ../cwn-combat-enhancements-${GITHUB_REF_NAME}.zip | grep -qx "scripts/chat-card.mjs"
+          unzip -Z1 ../cwn-combat-enhancements-${GITHUB_REF_NAME}.zip | grep -qx "scripts/monthly-expenses-rules.mjs"
+          unzip -Z1 ../cwn-combat-enhancements-${GITHUB_REF_NAME}.zip | grep -qx "scripts/monthly-expenses.mjs"
           unzip -Z1 ../cwn-combat-enhancements-${GITHUB_REF_NAME}.zip | grep -qx "scripts/network-console/network-model.mjs"
           unzip -Z1 ../cwn-combat-enhancements-${GITHUB_REF_NAME}.zip | grep -qx "scripts/network-console/demon-rules.mjs"
           unzip -Z1 ../cwn-combat-enhancements-${GITHUB_REF_NAME}.zip | grep -qx "scripts/network-console/network-console.mjs"
           unzip -Z1 ../cwn-combat-enhancements-${GITHUB_REF_NAME}.zip | grep -qx "styles/network-console.css"
           unzip -Z1 ../cwn-combat-enhancements-${GITHUB_REF_NAME}.zip | grep -qx "styles/cwn-combat-enhancements.css"
           unzip -Z1 ../cwn-combat-enhancements-${GITHUB_REF_NAME}.zip | grep -qx "templates/network-console/console.hbs"
+          unzip -Z1 ../cwn-combat-enhancements-${GITHUB_REF_NAME}.zip | grep -qx "templates/monthly-expenses.hbs"
 
       - name: Upload workflow artifact
         uses: actions/upload-artifact@v4
