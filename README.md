@@ -1,7 +1,7 @@
 # CWN Combat Enhancements
 
-A minimal Foundry VTT v13 companion module for **Cities Without Number** games
-running on **Systems Without Number Redux (SWNR) 2.3.0**.
+A companion module for **Cities Without Number** games running on **Systems
+Without Number Redux (SWNR) 2.3.1**, verified for Foundry VTT 14.365.
 
 ## Current scope
 
@@ -68,14 +68,14 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.13.0.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.13.1.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
 and roll a weapon from that actor's sheet. Use a scene whose distance units are
 meters, feet, yards, kilometres, or miles.
 
-## SWNR 2.3.0 integration notes
+## SWNR 2.3.1 integration notes
 
 - Attack entry point: `module/data/items/item-weapon.mjs`, `SWNWeapon.rollAttack()`.
 - Weapon dialog entry point: `SWNWeapon.roll()` and
@@ -307,7 +307,7 @@ defaults do not alter normal SWNR attack cards.
 - Unknown/custom scene distance units cannot be converted to weapon-range meters.
 - Melee attacks select melee AC and report distance, but v0.1 does not enforce a
   reach limit because SWNR's melee compendium entries contain generic range data.
-- The module recognizes SWNR's existing attack-card HTML because SWNR 2.3.0 does
+- The module recognizes SWNR's existing attack-card HTML because SWNR 2.3.1 does
   not attach weapon/target metadata to every attack message. A future SWNR card
   markup change may require a compatibility update.
 - Multi-level/elevation distance and wall/line-of-sight checks are not included.

@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.13.1
+
+- Verified the module against Foundry VTT 14.365 and SWNR 2.3.1.
+- Migrated attack-result and Suppressive Fire enhancement to Foundry V14's
+  `renderChatMessageHTML` hook.
+- Added shared Foundry V13/V14 chat-visibility handling so public, GM, blind,
+  and self messages retain the selected core message mode.
+- Replaced the deprecated global Handlebars template call used by Monthly
+  Expenses with Foundry's namespaced V14 renderer while retaining a V13
+  fallback.
+- Added automated compatibility coverage and release-package assertions for
+  the new shared helper.
+
 ## 0.13.0
 
 - Added a GM-only Cyberware Maintenance section to native SWNR Cyberware sheets

@@ -1,5 +1,14 @@
 # SWNR 2.3.0 code-path audit
 
+## Foundry V14 / SWNR 2.3.1 compatibility validation
+
+The original source-path audit below remains the design record for the
+module's integrations. Release 0.13.1 revalidated those paths against SWNR
+2.3.1 and Foundry VTT 14.365. Chat DOM enhancement now uses
+`renderChatMessageHTML`; chat visibility supports V14 `messageMode` and
+`ChatMessage.applyMode`; and template rendering uses the namespaced Foundry
+Handlebars API. V13 fallbacks remain isolated in `scripts/foundry-compat.mjs`.
+
 This audit was performed against the `v2.3.0` tag (commit
 `551564ac6aad1f9d143cc8b42e00080c44211602`) of `wintersleepAI/swnr`.
 
@@ -47,7 +56,7 @@ classified for contextual, manual, or future handler-based automation.
 SWNR 2.3.0 does not persist the user's targeted tokens on this message. The
 companion module therefore reads the actor/item IDs from the card during
 `preCreateChatMessage` and adds a namespaced flag containing the attacker's token
-and the targets selected at roll time. Its `renderChatMessage` hook then appends
+and the targets selected at roll time. Its `renderChatMessageHTML` hook then appends
 the result block to the existing card.
 
 Version 0.12.3 adds the module-owned `scripts/chat-card.mjs` renderer for exact

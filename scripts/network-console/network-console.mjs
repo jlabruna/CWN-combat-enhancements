@@ -2,6 +2,7 @@ import {
   calculateConnectionGeometry,
   svgPixelViewBox,
 } from "./network-geometry.mjs";
+import { applyChatMessageMode } from "../foundry-compat.mjs";
 import {
   autoArrangePositions,
   clampPosition,
@@ -2282,7 +2283,7 @@ async function postDemonActionCard({ network, node, demon, actionKey, target, ro
   if (!demon.revealed || !node.revealed) {
     data.whisper = ChatMessage.getWhisperRecipients("GM").map((user) => user.id);
   }
-  else ChatMessage.applyRollMode(data, game.settings.get("core", "rollMode"));
+  else applyChatMessageMode(data);
   await ChatMessage.create(data);
 }
 

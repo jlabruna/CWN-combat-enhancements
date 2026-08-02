@@ -1,3 +1,5 @@
+import { applyChatMessageMode } from "./foundry-compat.mjs";
+
 const MODULE_ID = "cwn-combat-enhancements";
 const SUPPRESSIVE_FLAG = "suppressiveFire";
 const SUPPRESSIVE_DAMAGE_FLAG = "suppressiveDamageApplication";
@@ -27,7 +29,7 @@ Hooks.on("preUpdateItem", (item, changes) => {
   }
 });
 
-Hooks.on("renderChatMessage", (message, html) => {
+Hooks.on("renderChatMessageHTML", (message, html) => {
   if (game.system.id !== "swnr") return;
   const context = message.getFlag(MODULE_ID, SUPPRESSIVE_FLAG);
   if (!context) return;
@@ -312,10 +314,7 @@ async function resolveSuppressiveFire({ weaponModel, damageBonus, statModifier }
       rolls,
       flags: { [MODULE_ID]: { [SUPPRESSIVE_FLAG]: context } },
     };
-    getDocumentClass("ChatMessage").applyRollMode(
-      chatData,
-      game.settings.get("core", "rollMode"),
-    );
+    applyChatMessageMode(chatData);
     await getDocumentClass("ChatMessage").create(chatData);
   } catch (error) {
     console.error(`${MODULE_ID} | Suppressive fire failed`, error);

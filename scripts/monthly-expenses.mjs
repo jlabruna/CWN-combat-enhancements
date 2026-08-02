@@ -9,6 +9,7 @@ import {
   normalizeCustomExpenses,
   readMonthlyExpensesConfig,
 } from "./monthly-expenses-rules.mjs";
+import { renderHandlebarsTemplate } from "./foundry-compat.mjs";
 
 Hooks.on("preUpdateItem", (item, changes, _options, userId) => {
   if (game.system.id !== "swnr" || item.type !== "cyberware") return;
@@ -154,7 +155,7 @@ export async function openMonthlyExpensesDialog(actor) {
   const config = readMonthlyExpensesConfig(actor);
   const calculation = calculateMonthlyExpenses(actor, config);
   const context = dialogContext(config, calculation);
-  const content = await renderTemplate(
+  const content = await renderHandlebarsTemplate(
     `modules/${MODULE_ID}/templates/monthly-expenses.hbs`,
     context,
   );

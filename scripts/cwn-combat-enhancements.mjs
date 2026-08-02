@@ -113,7 +113,7 @@ function installNpcArmorCalculation() {
 }
 
 /**
- * Correct SWNR 2.3.0's NPC armor derivation. SWNR currently leaves NPC AC at
+ * Correct SWNR's NPC armor derivation. SWNR currently leaves NPC AC at
  * its manual values and counts every owned armor item's Soak and Trauma bonus,
  * even when its use checkbox is clear.
  */
@@ -222,7 +222,7 @@ Hooks.on("preCreateChatMessage", (message, data, _options, userId) => {
   message.updateSource({ [`flags.${MODULE_ID}.${ATTACK_FLAG}`]: attackContext });
 });
 
-Hooks.on("renderChatMessage", (message, html) => {
+Hooks.on("renderChatMessageHTML", (message, html) => {
   if (game.system.id !== "swnr") return;
 
   const context = message.getFlag(MODULE_ID, ATTACK_FLAG);

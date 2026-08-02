@@ -19,7 +19,7 @@ export const DEFAULT_CANVAS = Object.freeze({
   padding: 32,
 });
 
-// Names match the CWN program Items supplied by SWNR 2.3.0.
+// Names match the CWN program Items supplied by SWNR 2.3.1.
 export const CWN_PROGRAM_VERBS = Object.freeze([
   "Activate", "Analyze", "Append", "Blind", "Deactivate", "Decrypt",
   "Defend", "Delude", "Erase", "Frisk", "Ghost", "Glitch", "Hijack",

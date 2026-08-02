@@ -1,6 +1,6 @@
-# Foundry VTT v13 / SWNR 2.3.x manual test checklist
+# Foundry VTT 14.365 / SWNR 2.3.1 manual test checklist
 
-Use a disposable world with CWN Combat Enhancements 0.13.0 enabled. Test with
+Use a disposable world with CWN Combat Enhancements 0.13.1 enabled. Test with
 actor-owned weapon and magazine Items. Give each magazine
 `type: "item"`, `system.uses.consumable: "count"`, positive
 `system.uses.value/max`, and a Magazine Family flag.
