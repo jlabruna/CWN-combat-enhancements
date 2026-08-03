@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.13.3
+
+- Corrected NPC weapon ownership detection so copied PC weapons now reliably
+  use SWNR's native NPC dialog instead of resolving a stale PC Skill Item ID.
+- Added opt-in Content Pack Skill binding: a newly imported tagged character
+  weapon resolves its portable Shoot or Stab metadata to the receiving
+  character's matching actor-owned Skill Item.
+- Kept NPC items, untagged/custom weapons, and existing actor copies unchanged.
+
 ## 0.13.2
 
 - Added a narrowly-scoped SWNR NPC weapon-roll compatibility boundary.

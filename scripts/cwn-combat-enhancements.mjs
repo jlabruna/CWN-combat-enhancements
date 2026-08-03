@@ -1,4 +1,8 @@
-import { installNpcWeaponRollCompatibility } from "./npc-weapon-roll-compat.mjs";
+import {
+  bindCharacterWeaponSkill,
+  installNpcWeaponRollCompatibility,
+  shouldBindCharacterWeaponSkill,
+} from "./npc-weapon-roll-compat.mjs";
 
 const MODULE_ID = "cwn-combat-enhancements";
 const ATTACK_FLAG = "attack";
@@ -42,6 +46,21 @@ Hooks.once("init", () => {
 Hooks.once("setup", () => {
   installNpcArmorCalculation();
   installNpcWeaponRollCompatibility();
+});
+
+// A compendium cannot ship an actor-specific SWNR Skill Item ID. Bind the
+// Content Pack's explicit Shoot/Stab metadata when the weapon is first copied
+// to a character; untagged items and NPC weapons remain untouched.
+Hooks.on("createItem", (item, _options, userId) => {
+  if (
+    game.system.id !== "swnr" ||
+    userId !== game.user.id ||
+    !shouldBindCharacterWeaponSkill(item)
+  ) return;
+
+  bindCharacterWeaponSkill(item).catch((error) => {
+    console.warn(`${MODULE_ID} | Could not bind the imported weapon skill.`, error);
+  });
 });
 
 /**

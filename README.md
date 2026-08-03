@@ -40,6 +40,9 @@ Without Number Redux (SWNR) 2.3.1**, verified for Foundry VTT 14.365.
 - Routes NPC weapon rolls through SWNR's native NPC dialog path, preventing a
   copied PC weapon's remembered actor-specific skill ID from applying a false
   -2 penalty or warning. PC weapon rolls and remembered settings are unchanged.
+- Resolves an imported CWN Content Pack character weapon's explicit Shoot or
+  Stab metadata to the receiving character's own Skill Item, while leaving NPC,
+  custom, and existing actor weapons untouched.
 - Includes an optional experimental **Network Console** for mapping CWN network
   nodes, connections, hidden connections, Barriers, and visible network
   contents. It is disabled by default.

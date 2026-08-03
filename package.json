@@ -1,7 +1,7 @@
 {
   "name": "cwn-combat-enhancements",
   "private": true,
-  "version": "0.13.2",
+  "version": "0.13.3",
   "type": "module",
   "scripts": {
     "check": "node --check scripts/cwn-combat-enhancements.mjs && node --check scripts/chat-card.mjs && node --check scripts/foundry-compat.mjs && node --check scripts/magazine-reload.mjs && node --check scripts/npc-weapon-roll-compat.mjs && node --check scripts/weapon-family.mjs && node --check scripts/monthly-expenses-rules.mjs && node --check scripts/monthly-expenses.mjs && node --check scripts/suppressive-fire.mjs && node --check scripts/network-console/network-console.mjs && node --check scripts/network-console/network-geometry.mjs && node --check scripts/network-console/network-model.mjs && node --check scripts/network-console/demon-rules.mjs && node --check tools/stage-release.mjs",
