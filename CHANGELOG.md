@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.13.2
+
+- Added a narrowly-scoped SWNR NPC weapon-roll compatibility boundary.
+- NPC weapon rolls now use SWNR's ordinary NPC dialog path rather than a
+  copied PC weapon's remembered actor-specific skill ID, preventing the native
+  missing-skill warning and false `-2` skill result.
+- Preserved SWNR's NPC attack bonus, manual modifier, Burst, damage,
+  ammunition, melee/ranged calculations, and all PC roll/remember behavior.
+- Added guarded, once-only installation and automated coverage for the system
+  boundary, NPC bypass, PC preservation, and missing-method warning path.
+
 ## 0.13.1
 
 - Verified the module against Foundry VTT 14.365 and SWNR 2.3.1.

@@ -5,10 +5,10 @@ import { fileURLToPath } from "node:url";
 const moduleRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const releaseRoot = path.join(moduleRoot, "release");
 const stageRoot = path.join(releaseRoot, "cwn-combat-enhancements");
-const browserUploadRoot = path.join(releaseRoot, "github-upload-v0.13.1");
+const browserUploadRoot = path.join(releaseRoot, "github-upload-v0.13.2");
 const browserDotfilesRoot = path.join(
   releaseRoot,
-  "github-dotfiles-upload-v0.13.1",
+  "github-dotfiles-upload-v0.13.2",
 );
 const files = [
   "CHANGELOG.md",
@@ -35,8 +35,8 @@ for (const directory of directories) {
 const manifest = JSON.parse(
   await fs.readFile(path.join(stageRoot, "module.json"), "utf8"),
 );
-if (manifest.version !== "0.13.1") {
-  throw new Error(`Expected module version 0.13.1 but found ${manifest.version}.`);
+if (manifest.version !== "0.13.2") {
+  throw new Error(`Expected module version 0.13.2 but found ${manifest.version}.`);
 }
 if (
   !manifest.download.endsWith(
@@ -92,6 +92,7 @@ for (const filename of [
   "magazine-reload.mjs",
   "monthly-expenses-rules.mjs",
   "monthly-expenses.mjs",
+  "npc-weapon-roll-compat.mjs",
   "suppressive-fire.mjs",
   "weapon-family.mjs",
 ]) {
@@ -129,6 +130,7 @@ for (const filename of [
   "network-model.test.mjs",
   "demon-rules.test.mjs",
   "monthly-expenses.test.mjs",
+  "npc-weapon-roll-compat.test.mjs",
   "weapon-family.test.mjs",
 ]) {
   await fs.copyFile(

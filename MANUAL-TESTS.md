@@ -1,11 +1,24 @@
 # Foundry VTT 14.365 / SWNR 2.3.1 manual test checklist
 
-Use a disposable world with CWN Combat Enhancements 0.13.1 enabled. Test with
+Use a disposable world with CWN Combat Enhancements 0.13.2 enabled. Test with
 actor-owned weapon and magazine Items. Give each magazine
 `type: "item"`, `system.uses.consumable: "count"`, positive
 `system.uses.value/max`, and a Magazine Family flag.
 
 Do not claim runtime success until these checks have been completed in Foundry.
+
+## v0.13.2 NPC weapon-roll compatibility
+
+1. Create or open an NPC with an unconfigured native weapon. Roll it and
+   confirm the normal SWNR NPC roll dialog and ordinary NPC attack result.
+2. Copy a PC weapon that has **Use Remembered Settings** enabled onto that NPC.
+   Roll it and confirm there is no “No skill found, using -2” notification.
+   Confirm the native NPC dialog opens and uses the NPC's existing attack bonus,
+   manual modifier, Burst choice, damage, and ammunition normally.
+3. Roll the original weapon on the PC. Confirm remembered PC skill selection
+   and every normal PC behavior remain unchanged.
+4. Ctrl+F5 and repeat step 2. Confirm the compatibility boundary still applies
+   once and no duplicate dialog, warning, or error appears.
 
 ## v0.13.0 cyberware and Monthly Expenses
 

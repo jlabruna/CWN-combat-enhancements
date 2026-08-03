@@ -1,3 +1,5 @@
+import { installNpcWeaponRollCompatibility } from "./npc-weapon-roll-compat.mjs";
+
 const MODULE_ID = "cwn-combat-enhancements";
 const ATTACK_FLAG = "attack";
 const DAMAGE_APPLICATION_FLAG = "damageApplication";
@@ -39,6 +41,7 @@ Hooks.once("init", () => {
 
 Hooks.once("setup", () => {
   installNpcArmorCalculation();
+  installNpcWeaponRollCompatibility();
 });
 
 /**

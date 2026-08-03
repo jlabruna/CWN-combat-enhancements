@@ -37,6 +37,9 @@ Without Number Redux (SWNR) 2.3.1**, verified for Foundry VTT 14.365.
 - Calculates NPC ranged AC, melee AC, Soak, and Trauma protection from armor
   that is both Readied and Equipped. Manual NPC AC remains the fallback when
   active armor does not improve it.
+- Routes NPC weapon rolls through SWNR's native NPC dialog path, preventing a
+  copied PC weapon's remembered actor-specific skill ID from applying a false
+  -2 penalty or warning. PC weapon rolls and remembered settings are unchanged.
 - Includes an optional experimental **Network Console** for mapping CWN network
   nodes, connections, hidden connections, Barriers, and visible network
   contents. It is disabled by default.
