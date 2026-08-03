@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.13.4
+
+- Extended tagged Content Pack character imports to restore the intended
+  native Dexterity, Strength, or Wisdom Stat when SWNR presents it as `Ask`.
+- Preserved the v0.13.3 NPC boundary and actor-owned Shoot/Stab Skill binding.
+- Kept NPC weapons and untagged/custom weapons outside the import correction.
+
 ## 0.13.3
 
 - Corrected NPC weapon ownership detection so copied PC weapons now reliably
@@ -7,7 +14,8 @@
 - Added opt-in Content Pack Skill binding: a newly imported tagged character
   weapon resolves its portable Shoot or Stab metadata to the receiving
   character's matching actor-owned Skill Item.
-- Kept NPC items, untagged/custom weapons, and existing actor copies unchanged.
+- Kept NPC items and untagged/custom weapons unchanged; an existing tagged
+  portable character copy resolves only when it is next rolled.
 
 ## 0.13.2
 

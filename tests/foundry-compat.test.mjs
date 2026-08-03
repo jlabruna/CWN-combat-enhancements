@@ -11,7 +11,7 @@ test("manifest targets Foundry V14 and SWNR 2.3.1", async () => {
   const manifest = JSON.parse(
     await fs.readFile(new URL("../module.json", import.meta.url), "utf8"),
   );
-  assert.equal(manifest.version, "0.13.3");
+  assert.equal(manifest.version, "0.13.4");
   assert.equal(manifest.compatibility.verified, "14.365");
   assert.equal(manifest.compatibility.maximum, undefined);
   const swnr = manifest.relationships.systems.find((entry) => entry.id === "swnr");

@@ -2,10 +2,11 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  bindCharacterWeaponSkill,
+  bindCharacterWeaponRollDefaults,
   findActorSkillByName,
+  getContentPackNativeStat,
   installNpcWeaponRollCompatibility,
-  shouldBindCharacterWeaponSkill,
+  shouldBindCharacterWeaponRollDefaults,
   shouldUseNativeNpcWeaponDialog,
 } from "../scripts/npc-weapon-roll-compat.mjs";
 
@@ -35,35 +36,58 @@ test("NPC weapon rolls bypass inherited remembered settings while PCs stay uncha
   assert.deepEqual(calls.map((call) => call.args), [[true], [false]]);
 });
 
-test("Content Pack character weapons bind their semantic skill to the receiving actor", async () => {
+test("Content Pack character weapons bind their semantic skill and portable Stat", async () => {
   const shoot = { id: "shoot-id", type: "skill", name: "Shoot" };
   const item = {
     id: "weapon-id",
     type: "weapon",
     actor: { type: "character", itemTypes: { skill: [shoot] } },
-    system: { skill: "ask" },
-    flags: { "harbour-city-stories": { nativeSkill: "Shoot" } },
+    system: { skill: "ask", stat: "ask" },
+    flags: { "harbour-city-stories": { nativeSkill: "Shoot", nativeStat: "dex" } },
     async update(change) { this.updated = change; },
   };
 
-  assert.equal(shouldBindCharacterWeaponSkill(item), true);
-  assert.equal(await bindCharacterWeaponSkill(item), "shoot-id");
-  assert.deepEqual(item.updated, { "system.skill": "shoot-id" });
+  assert.equal(shouldBindCharacterWeaponRollDefaults(item), true);
+  assert.deepEqual(
+    await bindCharacterWeaponRollDefaults(item),
+    { "system.skill": "shoot-id", "system.stat": "dex" },
+  );
+  assert.deepEqual(item.updated, {
+    "system.skill": "shoot-id",
+    "system.stat": "dex",
+  });
   assert.equal(findActorSkillByName(item.actor, "shoot"), shoot);
+  assert.equal(getContentPackNativeStat(item), "dex");
 });
 
-test("skill binding does not alter NPC, untagged, or unmatched weapons", async () => {
+test("roll-default binding does not alter NPC or untagged weapons", async () => {
   const npcItem = {
     type: "weapon", actor: { type: "npc", itemTypes: { skill: [] } },
-    system: { skill: "ask" }, flags: { "harbour-city-stories": { nativeSkill: "Shoot" } },
+    system: { skill: "ask", stat: "ask" },
+    flags: { "harbour-city-stories": { nativeSkill: "Shoot", nativeStat: "dex" } },
   };
-  const unmatchedItem = {
+  const untaggedItem = {
     type: "weapon", actor: { type: "character", itemTypes: { skill: [] } },
-    system: { skill: "ask" }, flags: { "harbour-city-stories": { nativeSkill: "Shoot" } },
+    system: { skill: "ask", stat: "ask" }, flags: {},
   };
-  assert.equal(shouldBindCharacterWeaponSkill(npcItem), false);
-  assert.equal(await bindCharacterWeaponSkill(npcItem), null);
-  assert.equal(await bindCharacterWeaponSkill(unmatchedItem), null);
+  assert.equal(shouldBindCharacterWeaponRollDefaults(npcItem), false);
+  assert.equal(await bindCharacterWeaponRollDefaults(npcItem), null);
+  assert.equal(await bindCharacterWeaponRollDefaults(untaggedItem), null);
+});
+
+test("native Stat resolves even when a matching character Skill is unavailable", async () => {
+  const item = {
+    type: "weapon",
+    actor: { type: "character", itemTypes: { skill: [] } },
+    system: { skill: "ask", stat: "ask" },
+    flags: { "harbour-city-stories": { nativeSkill: "Shoot", nativeStat: "wis" } },
+    async update(change) { this.updated = change; },
+  };
+  assert.deepEqual(
+    await bindCharacterWeaponRollDefaults(item),
+    { "system.stat": "wis" },
+  );
+  assert.deepEqual(item.updated, { "system.stat": "wis" });
 });
 
 test("installation is guarded by SWNR and applied only once", () => {

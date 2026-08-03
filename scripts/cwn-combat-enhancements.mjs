@@ -1,7 +1,7 @@
 import {
-  bindCharacterWeaponSkill,
+  bindCharacterWeaponRollDefaults,
   installNpcWeaponRollCompatibility,
-  shouldBindCharacterWeaponSkill,
+  shouldBindCharacterWeaponRollDefaults,
 } from "./npc-weapon-roll-compat.mjs";
 
 const MODULE_ID = "cwn-combat-enhancements";
@@ -55,11 +55,11 @@ Hooks.on("createItem", (item, _options, userId) => {
   if (
     game.system.id !== "swnr" ||
     userId !== game.user.id ||
-    !shouldBindCharacterWeaponSkill(item)
+    !shouldBindCharacterWeaponRollDefaults(item)
   ) return;
 
-  bindCharacterWeaponSkill(item).catch((error) => {
-    console.warn(`${MODULE_ID} | Could not bind the imported weapon skill.`, error);
+  bindCharacterWeaponRollDefaults(item).catch((error) => {
+    console.warn(`${MODULE_ID} | Could not bind the imported weapon roll defaults.`, error);
   });
 });
 

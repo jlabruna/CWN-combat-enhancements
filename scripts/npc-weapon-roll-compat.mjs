@@ -10,7 +10,8 @@
  * `ask` value: a compendium cannot know the ID of the receiving actor's Shoot
  * or Stab Item. Its semantic skill name is stored in an opt-in Content Pack
  * flag. When such a weapon belongs to a character, resolve that name to the
- * matching actor-owned Skill ID without altering untagged or custom weapons.
+ * matching actor-owned Skill ID and restore its intended native Stat if SWNR
+ * imported it as `ask`, without altering untagged or custom weapons.
  */
 
 export const NPC_WEAPON_ROLL_PATCH = Symbol.for(
@@ -20,6 +21,8 @@ export const NPC_WEAPON_ROLL_PATCH = Symbol.for(
 const MODULE_ID = "cwn-combat-enhancements";
 const CONTENT_PACK_SCOPE = "harbour-city-stories";
 const SKILL_PROMPT = "ask";
+const STAT_PROMPT = "ask";
+const NATIVE_STATS = new Set(["str", "dex", "con", "int", "wis", "cha"]);
 
 export function shouldUseNativeNpcWeaponDialog(weaponData) {
   return weaponData?.parent?.actor?.type === "npc";
@@ -28,6 +31,11 @@ export function shouldUseNativeNpcWeaponDialog(weaponData) {
 export function getContentPackNativeSkillName(item) {
   const name = item?.flags?.[CONTENT_PACK_SCOPE]?.nativeSkill;
   return typeof name === "string" && name.trim() ? name.trim() : null;
+}
+
+export function getContentPackNativeStat(item) {
+  const stat = item?.flags?.[CONTENT_PACK_SCOPE]?.nativeStat;
+  return typeof stat === "string" && NATIVE_STATS.has(stat) ? stat : null;
 }
 
 export function findActorSkillByName(actor, skillName) {
@@ -41,21 +49,39 @@ export function findActorSkillByName(actor, skillName) {
   ) ?? null;
 }
 
-export function shouldBindCharacterWeaponSkill(item) {
+export function shouldBindCharacterWeaponRollDefaults(item) {
+  const hasPortableSkill = (
+    item?.system?.skill === SKILL_PROMPT &&
+    getContentPackNativeSkillName(item) !== null
+  );
+  const hasPortableStat = (
+    item?.system?.stat === STAT_PROMPT &&
+    getContentPackNativeStat(item) !== null
+  );
   return (
     item?.type === "weapon" &&
     item.actor?.type === "character" &&
-    item.system?.skill === SKILL_PROMPT &&
-    getContentPackNativeSkillName(item) !== null
+    (hasPortableSkill || hasPortableStat)
   );
 }
 
-export async function bindCharacterWeaponSkill(item) {
-  if (!shouldBindCharacterWeaponSkill(item)) return null;
-  const skill = findActorSkillByName(item.actor, getContentPackNativeSkillName(item));
-  if (!skill?.id) return null;
-  await item.update({ "system.skill": skill.id });
-  return skill.id;
+export async function bindCharacterWeaponRollDefaults(item) {
+  if (!shouldBindCharacterWeaponRollDefaults(item)) return null;
+
+  const changes = {};
+  const skill = item.system?.skill === SKILL_PROMPT
+    ? findActorSkillByName(item.actor, getContentPackNativeSkillName(item))
+    : null;
+  const nativeStat = getContentPackNativeStat(item);
+
+  if (skill?.id) changes["system.skill"] = skill.id;
+  if (item.system?.stat === STAT_PROMPT && nativeStat) {
+    changes["system.stat"] = nativeStat;
+  }
+  if (!Object.keys(changes).length) return null;
+
+  await item.update(changes);
+  return changes;
 }
 
 export function installNpcWeaponRollCompatibility({
@@ -87,7 +113,7 @@ export function installNpcWeaponRollCompatibility({
       // ammunition handling, while never resolving a copied PC skill ID.
       return originalRoll.call(this, true);
     }
-    await bindCharacterWeaponSkill(this?.parent);
+    await bindCharacterWeaponRollDefaults(this?.parent);
     return originalRoll.apply(this, args);
   };
 
