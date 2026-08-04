@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.5
+
+- Added backward-compatible native Stat recovery for tagged Content Pack
+  weapons whose generated Item carries `nativeSkill` but lacks `nativeStat`.
+- Restored Dexterity for tagged Shoot weapons and Strength for tagged Stab
+  weapons while preserving Mortar/Wisdom and explicit native-Stat mappings.
+- Kept NPC weapons and custom or untagged weapons outside the correction.
+
 ## 0.13.4
 
 - Extended tagged Content Pack character imports to restore the intended

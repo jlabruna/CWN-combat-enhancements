@@ -90,6 +90,55 @@ test("native Stat resolves even when a matching character Skill is unavailable",
   assert.deepEqual(item.updated, { "system.stat": "wis" });
 });
 
+test("legacy tagged Shoot and Stab weapons recover their native Stat", async () => {
+  for (const [nativeSkill, expectedStat] of [["Shoot", "dex"], ["Stab", "str"]]) {
+    const item = {
+      type: "weapon",
+      actor: { type: "character", itemTypes: { skill: [] } },
+      system: { skill: "ask", stat: "ask" },
+      flags: { "harbour-city-stories": { nativeSkill } },
+      async update(change) { this.updated = change; },
+    };
+    assert.deepEqual(
+      await bindCharacterWeaponRollDefaults(item),
+      { "system.stat": expectedStat },
+    );
+    assert.deepEqual(item.updated, { "system.stat": expectedStat });
+  }
+});
+
+test("explicit native Stat takes precedence over the legacy Skill fallback", async () => {
+  const item = {
+    type: "weapon",
+    actor: { type: "character", itemTypes: { skill: [] } },
+    system: { skill: "ask", stat: "ask" },
+    flags: {
+      "harbour-city-stories": { nativeSkill: "Shoot", nativeStat: "wis" },
+    },
+    async update(change) { this.updated = change; },
+  };
+  assert.deepEqual(
+    await bindCharacterWeaponRollDefaults(item),
+    { "system.stat": "wis" },
+  );
+});
+
+test("a legacy tagged Mortar retains its exceptional Wisdom Stat", async () => {
+  const item = {
+    type: "weapon",
+    actor: { type: "character", itemTypes: { skill: [] } },
+    system: { skill: "ask", stat: "ask" },
+    flags: {
+      "harbour-city-stories": { nativeSkill: "Shoot", baseWeapon: "Mortar" },
+    },
+    async update(change) { this.updated = change; },
+  };
+  assert.deepEqual(
+    await bindCharacterWeaponRollDefaults(item),
+    { "system.stat": "wis" },
+  );
+});
+
 test("installation is guarded by SWNR and applied only once", () => {
   const warnings = [];
   const logger = { warn: (message) => warnings.push(message) };

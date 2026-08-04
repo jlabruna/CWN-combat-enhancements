@@ -5,10 +5,10 @@ import { fileURLToPath } from "node:url";
 const moduleRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const releaseRoot = path.join(moduleRoot, "release");
 const stageRoot = path.join(releaseRoot, "cwn-combat-enhancements");
-const browserUploadRoot = path.join(releaseRoot, "github-upload-v0.13.4");
+const browserUploadRoot = path.join(releaseRoot, "github-upload-v0.13.5");
 const browserDotfilesRoot = path.join(
   releaseRoot,
-  "github-dotfiles-upload-v0.13.4",
+  "github-dotfiles-upload-v0.13.5",
 );
 const files = [
   "CHANGELOG.md",
@@ -35,8 +35,8 @@ for (const directory of directories) {
 const manifest = JSON.parse(
   await fs.readFile(path.join(stageRoot, "module.json"), "utf8"),
 );
-if (manifest.version !== "0.13.4") {
-  throw new Error(`Expected module version 0.13.4 but found ${manifest.version}.`);
+if (manifest.version !== "0.13.5") {
+  throw new Error(`Expected module version 0.13.5 but found ${manifest.version}.`);
 }
 if (
   !manifest.download.endsWith(

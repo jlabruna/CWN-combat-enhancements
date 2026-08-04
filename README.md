@@ -44,7 +44,8 @@ Without Number Redux (SWNR) 2.3.1**, verified for Foundry VTT 14.365.
   and native-Stat metadata to the receiving character's own Skill Item and its
   intended Dexterity, Strength, or Wisdom Stat. A tagged portable copy already
   on a character is resolved when first rolled; NPC and custom/untagged weapons
-  remain untouched.
+  remain untouched. Older tagged entries that predate explicit native-Stat
+  metadata recover Dexterity from Shoot or Strength from Stab.
 - Includes an optional experimental **Network Console** for mapping CWN network
   nodes, connections, hidden connections, Barriers, and visible network
   contents. It is disabled by default.

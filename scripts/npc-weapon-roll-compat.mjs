@@ -23,6 +23,10 @@ const CONTENT_PACK_SCOPE = "harbour-city-stories";
 const SKILL_PROMPT = "ask";
 const STAT_PROMPT = "ask";
 const NATIVE_STATS = new Set(["str", "dex", "con", "int", "wis", "cha"]);
+const LEGACY_SKILL_STATS = new Map([
+  ["shoot", "dex"],
+  ["stab", "str"],
+]);
 
 export function shouldUseNativeNpcWeaponDialog(weaponData) {
   return weaponData?.parent?.actor?.type === "npc";
@@ -35,7 +39,18 @@ export function getContentPackNativeSkillName(item) {
 
 export function getContentPackNativeStat(item) {
   const stat = item?.flags?.[CONTENT_PACK_SCOPE]?.nativeStat;
-  return typeof stat === "string" && NATIVE_STATS.has(stat) ? stat : null;
+  if (typeof stat === "string" && NATIVE_STATS.has(stat)) return stat;
+
+  // Content Pack 0.7.5 introduced the trusted semantic Skill marker before
+  // nativeStat was added. Preserve compatibility with those generated pack
+  // entries and actor copies: CWN firearms use Shoot/Dexterity and melee or
+  // thrown weapons use Stab/Strength. Explicit nativeStat always wins, which
+  // keeps exceptional mappings such as Mortar/Wisdom authoritative.
+  const baseWeapon = item?.flags?.[CONTENT_PACK_SCOPE]?.baseWeapon;
+  if (baseWeapon === "Mortar") return "wis";
+
+  const skillName = getContentPackNativeSkillName(item)?.toLocaleLowerCase();
+  return skillName ? LEGACY_SKILL_STATS.get(skillName) ?? null : null;
 }
 
 export function findActorSkillByName(actor, skillName) {
