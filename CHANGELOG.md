@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.6
+
+- Added a versioned runtime entry point and release-specific compatibility
+  import so Forge/browser caches cannot keep the pre-Stat-repair module graph.
+- Ensured the v0.13.5 tagged weapon Stat recovery actually loads after a
+  module update, including Shoot/Dexterity, Stab/Strength, and Mortar/Wisdom.
+- Preserved existing NPC, custom weapon, roll, ammunition, and chat behavior.
+
 ## 0.13.5
 
 - Added backward-compatible native Stat recovery for tagged Content Pack

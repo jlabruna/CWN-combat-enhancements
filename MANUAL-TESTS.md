@@ -1,13 +1,13 @@
 # Foundry VTT 14.365 / SWNR 2.3.1 manual test checklist
 
-Use a disposable world with CWN Combat Enhancements 0.13.5 enabled. Test with
+Use a disposable world with CWN Combat Enhancements 0.13.6 enabled. Test with
 actor-owned weapon and magazine Items. Give each magazine
 `type: "item"`, `system.uses.consumable: "count"`, positive
 `system.uses.value/max`, and a Magazine Family flag.
 
 Do not claim runtime success until these checks have been completed in Foundry.
 
-## v0.13.5 NPC weapon-roll compatibility
+## v0.13.6 NPC weapon-roll compatibility
 
 1. Create or open an NPC with an unconfigured native weapon. Roll it and
    confirm the normal SWNR NPC roll dialog and ordinary NPC attack result.
