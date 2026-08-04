@@ -128,8 +128,17 @@ export function installNpcWeaponRollCompatibility({
       // ammunition handling, while never resolving a copied PC skill ID.
       return originalRoll.call(this, true);
     }
-    await bindCharacterWeaponRollDefaults(this?.parent);
-    return originalRoll.apply(this, args);
+    const item = this?.parent;
+    const changes = await bindCharacterWeaponRollDefaults(item);
+
+    // Item.update() rebuilds Foundry's embedded System DataModel. Calling
+    // SWNR with the pre-update model leaves `this.stat`/`this.skill` at their
+    // old portable `ask` values for the entire dialog callback. Use the
+    // document's current model after binding so the dialog and eventual roll
+    // both see the restored Content Pack defaults. This is especially visible
+    // on the second attack, after SWNR has also updated the weapon's ammo.
+    const currentModel = changes && item?.system ? item.system : this;
+    return originalRoll.apply(currentModel, args);
   };
 
   return { installed: true, alreadyInstalled: false };

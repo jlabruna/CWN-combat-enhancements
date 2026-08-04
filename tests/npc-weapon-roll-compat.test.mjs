@@ -36,6 +36,44 @@ test("NPC weapon rolls bypass inherited remembered settings while PCs stay uncha
   assert.deepEqual(calls.map((call) => call.args), [[true], [false]]);
 });
 
+test("character rolls continue with the refreshed model created by Item.update", async () => {
+  const calls = [];
+  const prototype = {
+    async roll(...args) {
+      calls.push({ context: this, args });
+      return `${this.stat}:${this.skill}`;
+    },
+  };
+  const shoot = { id: "shoot-id", type: "skill", name: "Shoot" };
+  const item = {
+    id: "weapon-id",
+    type: "weapon",
+    actor: { type: "character", itemTypes: { skill: [shoot] } },
+    system: null,
+    flags: {
+      "harbour-city-stories": { nativeSkill: "Shoot", nativeStat: "dex" },
+    },
+    async update(changes) {
+      this.system = {
+        parent: this,
+        stat: changes["system.stat"] ?? this.system.stat,
+        skill: changes["system.skill"] ?? this.system.skill,
+      };
+    },
+  };
+  const staleModel = { parent: item, stat: "ask", skill: "ask" };
+  item.system = staleModel;
+
+  installNpcWeaponRollCompatibility({
+    gameRef: { system: { id: "swnr" } },
+    config: { Item: { dataModels: { weapon: { prototype } } } },
+  });
+
+  assert.equal(await prototype.roll.call(staleModel, false), "dex:shoot-id");
+  assert.notEqual(calls[0].context, staleModel);
+  assert.equal(calls[0].context, item.system);
+});
+
 test("Content Pack character weapons bind their semantic skill and portable Stat", async () => {
   const shoot = { id: "shoot-id", type: "skill", name: "Shoot" };
   const item = {

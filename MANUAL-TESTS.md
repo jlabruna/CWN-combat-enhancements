@@ -1,13 +1,13 @@
 # Foundry VTT 14.365 / SWNR 2.3.1 manual test checklist
 
-Use a disposable world with CWN Combat Enhancements 0.13.6 enabled. Test with
+Use a disposable world with CWN Combat Enhancements 0.13.7 enabled. Test with
 actor-owned weapon and magazine Items. Give each magazine
 `type: "item"`, `system.uses.consumable: "count"`, positive
 `system.uses.value/max`, and a Magazine Family flag.
 
 Do not claim runtime success until these checks have been completed in Foundry.
 
-## v0.13.6 NPC weapon-roll compatibility
+## v0.13.7 NPC weapon-roll compatibility
 
 1. Create or open an NPC with an unconfigured native weapon. Roll it and
    confirm the normal SWNR NPC roll dialog and ordinary NPC attack result.
@@ -22,11 +22,15 @@ Do not claim runtime success until these checks have been completed in Foundry.
 5. On a Character that owns a Shoot Skill, drag a new rifle directly from CWN
    Content Pack's weapon compendium. Confirm its Skill field changes from the
    portable prompt to that Character's Shoot Skill and its Stat is Dexterity,
-   then roll and confirm no missing-skill warning or -2 fallback appears.
+   then roll twice and confirm both attacks use Dexterity with no missing-skill
+   warning or -2 fallback. Reopen the weapon between rolls and confirm its
+   Skill and Stat remain correctly resolved.
 6. Repeat step 5 with a Stab weapon and a Character that owns Stab. Confirm it
    binds Stab and restores the documented Strength/Dexterity choice. Confirm a
    Character with no matching Skill remains on the native prompt instead of
    being assigned an unrelated Skill, while its native Stat still resolves.
+7. Repeat step 5 with the Content Pack Mortar. Confirm both successive attacks
+   use Wisdom rather than the first Stat listed in SWNR's prompt.
 
 ## v0.13.0 cyberware and Monthly Expenses
 

@@ -2,7 +2,7 @@ import {
   bindCharacterWeaponRollDefaults,
   installNpcWeaponRollCompatibility,
   shouldBindCharacterWeaponRollDefaults,
-} from "./npc-weapon-roll-compat.mjs?v=0.13.6";
+} from "./npc-weapon-roll-compat.mjs?v=0.13.7";
 
 const MODULE_ID = "cwn-combat-enhancements";
 const ATTACK_FLAG = "attack";

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.7
+
+- Fixed repeated Content Pack weapon attacks using SWNR's stale pre-update
+  weapon model after resolving portable Skill and Stat defaults.
+- Content Pack firearms now continue to use Dexterity, Mortars continue to use
+  Wisdom, and melee weapons continue to use Strength on successive attacks.
+- Preserved SWNR's native Remember settings behaviour and custom weapon data.
+
 ## 0.13.6
 
 - Added a versioned runtime entry point and release-specific compatibility

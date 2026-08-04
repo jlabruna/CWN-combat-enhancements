@@ -11,9 +11,9 @@ test("manifest targets Foundry V14 and SWNR 2.3.1", async () => {
   const manifest = JSON.parse(
     await fs.readFile(new URL("../module.json", import.meta.url), "utf8"),
   );
-  assert.equal(manifest.version, "0.13.6");
+  assert.equal(manifest.version, "0.13.7");
   assert.ok(
-    manifest.esmodules.includes("scripts/cwn-combat-enhancements-v0.13.6.mjs"),
+    manifest.esmodules.includes("scripts/cwn-combat-enhancements-v0.13.7.mjs"),
   );
   assert.equal(manifest.compatibility.verified, "14.365");
   assert.equal(manifest.compatibility.maximum, undefined);
@@ -24,15 +24,15 @@ test("manifest targets Foundry V14 and SWNR 2.3.1", async () => {
 
 test("versioned runtime entry point cache-busts the weapon compatibility graph", async () => {
   const entry = await fs.readFile(
-    new URL("../scripts/cwn-combat-enhancements-v0.13.6.mjs", import.meta.url),
+    new URL("../scripts/cwn-combat-enhancements-v0.13.7.mjs", import.meta.url),
     "utf8",
   );
   const implementation = await fs.readFile(
     new URL("../scripts/cwn-combat-enhancements.mjs", import.meta.url),
     "utf8",
   );
-  assert.match(entry, /cwn-combat-enhancements\.mjs\?v=0\.13\.6/);
-  assert.match(implementation, /npc-weapon-roll-compat\.mjs\?v=0\.13\.6/);
+  assert.match(entry, /cwn-combat-enhancements\.mjs\?v=0\.13\.7/);
+  assert.match(implementation, /npc-weapon-roll-compat\.mjs\?v=0\.13\.7/);
 });
 
 test("Foundry V14 uses messageMode and ChatMessage.applyMode", () => {
