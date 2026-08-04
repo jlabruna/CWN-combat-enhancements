@@ -80,7 +80,7 @@ export function shouldBindCharacterWeaponRollDefaults(item) {
   );
 }
 
-export async function bindCharacterWeaponRollDefaults(item) {
+export function getCharacterWeaponRollDefaultChanges(item) {
   if (!shouldBindCharacterWeaponRollDefaults(item)) return null;
 
   const changes = {};
@@ -93,7 +93,12 @@ export async function bindCharacterWeaponRollDefaults(item) {
   if (item.system?.stat === STAT_PROMPT && nativeStat) {
     changes["system.stat"] = nativeStat;
   }
-  if (!Object.keys(changes).length) return null;
+  return Object.keys(changes).length ? changes : null;
+}
+
+export async function bindCharacterWeaponRollDefaults(item) {
+  const changes = getCharacterWeaponRollDefaultChanges(item);
+  if (!changes) return null;
 
   await item.update(changes);
   return changes;
@@ -138,7 +143,18 @@ export function installNpcWeaponRollCompatibility({
     // both see the restored Content Pack defaults. This is especially visible
     // on the second attack, after SWNR has also updated the weapon's ammo.
     const currentModel = changes && item?.system ? item.system : this;
-    return originalRoll.apply(currentModel, args);
+
+    try {
+      return await originalRoll.apply(currentModel, args);
+    } finally {
+      // SWNR 2.3.1 updates ammunition with a partial `system` object after an
+      // attack. Its weapon migration treats the omitted Stat as invalid and
+      // inserts `ask`, even though this tagged Content Pack weapon was already
+      // resolved to Dexterity, Strength, or Wisdom. Repair that upstream
+      // partial-update side effect before the roll completes so the actor's
+      // embedded Item and its open sheet retain the intended native Stat.
+      await bindCharacterWeaponRollDefaults(item);
+    }
   };
 
   return { installed: true, alreadyInstalled: false };

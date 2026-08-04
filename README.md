@@ -48,7 +48,9 @@ Without Number Redux (SWNR) 2.3.1**, verified for Foundry VTT 14.365.
   metadata recover Dexterity from Shoot or Strength from Stab. The runtime
   entry point is versioned so Forge/browser caches cannot retain older binding
   behavior after a patch update. After binding, SWNR receives the refreshed
-  weapon model so successive attacks retain the resolved Skill and Stat.
+  weapon model so successive attacks retain the resolved Skill and Stat. A
+  targeted SWNR 2.3.1 compatibility repair also preserves that Stat when the
+  system's partial ammunition update would otherwise migrate it back to Ask.
 - Includes an optional experimental **Network Console** for mapping CWN network
   nodes, connections, hidden connections, Barriers, and visible network
   contents. It is disabled by default.

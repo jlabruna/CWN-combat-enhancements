@@ -1,8 +1,9 @@
 import {
   bindCharacterWeaponRollDefaults,
+  getCharacterWeaponRollDefaultChanges,
   installNpcWeaponRollCompatibility,
   shouldBindCharacterWeaponRollDefaults,
-} from "./npc-weapon-roll-compat.mjs?v=0.13.7";
+} from "./npc-weapon-roll-compat.mjs?v=0.13.8";
 
 const MODULE_ID = "cwn-combat-enhancements";
 const ATTACK_FLAG = "attack";
@@ -48,6 +49,15 @@ Hooks.once("setup", () => {
   installNpcWeaponRollCompatibility();
 });
 
+// Resolve portable Content Pack defaults in the embedded Item source before
+// Foundry creates it. This prevents a newly dropped weapon sheet from briefly
+// or permanently opening on Ask while the asynchronous create hook catches up.
+Hooks.on("preCreateItem", (item, _data, _options, userId) => {
+  if (game.system.id !== "swnr" || userId !== game.user.id) return;
+  const changes = getCharacterWeaponRollDefaultChanges(item);
+  if (changes) item.updateSource(changes);
+});
+
 // A compendium cannot ship an actor-specific SWNR Skill Item ID. Bind the
 // Content Pack's explicit Shoot/Stab metadata when the weapon is first copied
 // to a character; untagged items and NPC weapons remain untouched.
@@ -60,6 +70,23 @@ Hooks.on("createItem", (item, _options, userId) => {
 
   bindCharacterWeaponRollDefaults(item).catch((error) => {
     console.warn(`${MODULE_ID} | Could not bind the imported weapon roll defaults.`, error);
+  });
+});
+
+// SWNR 2.3.1's weapon migration can replace a previously resolved Stat with
+// `ask` when any later partial system update omits the Stat (including SWNR's
+// own ammunition update). Repair only explicitly tagged Content Pack weapons
+// owned by characters. The repair update does not recurse because the Item no
+// longer qualifies once its native Stat has been restored.
+Hooks.on("updateItem", (item, _changes, _options, userId) => {
+  if (
+    game.system.id !== "swnr" ||
+    userId !== game.user.id ||
+    !shouldBindCharacterWeaponRollDefaults(item)
+  ) return;
+
+  bindCharacterWeaponRollDefaults(item).catch((error) => {
+    console.warn(`${MODULE_ID} | Could not preserve the weapon roll defaults.`, error);
   });
 });
 

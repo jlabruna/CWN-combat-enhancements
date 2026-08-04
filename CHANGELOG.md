@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.13.8
+
+- Worked around SWNR 2.3.1 resetting a weapon's stored Stat to `Ask` during
+  its own partial ammunition update.
+- Tagged Content Pack character weapons now retain Dexterity, Strength, or
+  Wisdom on the embedded Item after firing, reloading, and later updates.
+- Kept untagged and custom weapons under native SWNR Stat handling.
+
 ## 0.13.7
 
 - Fixed repeated Content Pack weapon attacks using SWNR's stale pre-update

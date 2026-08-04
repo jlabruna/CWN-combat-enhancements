@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import {
   bindCharacterWeaponRollDefaults,
   findActorSkillByName,
+  getCharacterWeaponRollDefaultChanges,
   getContentPackNativeStat,
   installNpcWeaponRollCompatibility,
   shouldBindCharacterWeaponRollDefaults,
@@ -74,6 +75,56 @@ test("character rolls continue with the refreshed model created by Item.update",
   assert.equal(calls[0].context, item.system);
 });
 
+test("SWNR ammunition updates cannot leave a tagged character weapon on Ask", async () => {
+  const prototype = {
+    async roll() {
+      // Reproduce SWNR 2.3.1's partial ammunition update migration: the
+      // embedded Item receives a new model whose omitted Stat became `ask`.
+      this.parent.system = {
+        ...this,
+        parent: this.parent,
+        stat: "ask",
+        ammo: { ...this.ammo, value: this.ammo.value - 1 },
+      };
+      return "rolled";
+    },
+  };
+  const shoot = { id: "shoot-id", type: "skill", name: "Shoot" };
+  const item = {
+    id: "weapon-id",
+    type: "weapon",
+    actor: { type: "character", itemTypes: { skill: [shoot] } },
+    flags: {
+      "harbour-city-stories": { nativeSkill: "Shoot", nativeStat: "dex" },
+    },
+    system: null,
+    async update(changes) {
+      this.system = {
+        ...this.system,
+        parent: this,
+        stat: changes["system.stat"] ?? this.system.stat,
+        skill: changes["system.skill"] ?? this.system.skill,
+      };
+    },
+  };
+  item.system = {
+    parent: item,
+    stat: "dex",
+    skill: "shoot-id",
+    ammo: { value: 16 },
+  };
+
+  installNpcWeaponRollCompatibility({
+    gameRef: { system: { id: "swnr" } },
+    config: { Item: { dataModels: { weapon: { prototype } } } },
+  });
+
+  assert.equal(await prototype.roll.call(item.system, false), "rolled");
+  assert.equal(item.system.ammo.value, 15);
+  assert.equal(item.system.stat, "dex");
+  assert.equal(item.system.skill, "shoot-id");
+});
+
 test("Content Pack character weapons bind their semantic skill and portable Stat", async () => {
   const shoot = { id: "shoot-id", type: "skill", name: "Shoot" };
   const item = {
@@ -96,6 +147,10 @@ test("Content Pack character weapons bind their semantic skill and portable Stat
   });
   assert.equal(findActorSkillByName(item.actor, "shoot"), shoot);
   assert.equal(getContentPackNativeStat(item), "dex");
+  assert.deepEqual(getCharacterWeaponRollDefaultChanges(item), {
+    "system.skill": "shoot-id",
+    "system.stat": "dex",
+  });
 });
 
 test("roll-default binding does not alter NPC or untagged weapons", async () => {
