@@ -46,6 +46,25 @@ classified for contextual, manual, or future handler-based automation.
 - The created message places the hit roll first in `rolls`, followed by any shock
   roll. This makes `message.rolls[0].total` the complete displayed attack total.
 
+### Linked NPC drone pilots
+
+SWNR 2.3.1 represents a Drone as actor type `drone`. Its native linked pilot ID
+is the first entry in `system.crewMembers`, and derived preparation exposes the
+resolved Actor at `system.pilot`. NPC actors use type `npc`; their complete
+ranged Attack Bonus is `system.ab`.
+
+Release 0.14.0 wraps only `SWNWeapon.roll()` for weapons owned by a Drone whose
+native pilot resolves to an NPC. The reduced dialog retains Burst Fire and the
+manual modifier, then delegates to native `rollAttack()` with Stat, Skill, and
+damage bonus set to zero. A temporary, synchronous `getRollData()` boundary
+supplies the NPC pilot bonus as both `ab` and `meleeAb`, because SWNR substitutes
+`meleeAb` for melee-tagged attacks while CWN Armor is enabled. The override is
+removed immediately after SWNR captures its roll data. This keeps the bonus in
+To Hit only and preserves the rest of SWNR's attack pipeline.
+
+Character pilots bypass this boundary. Missing, deleted, and unsupported pilot
+types stop safely rather than falling through to an incorrect native formula.
+
 ## Chat card
 
 `templates/chat/attack-roll.hbs` renders `.chat-card.item-card` and includes:

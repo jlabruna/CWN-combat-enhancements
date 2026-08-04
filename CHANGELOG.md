@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.14.0
+
+- Added simplified linked-NPC pilot attacks for SWNR drone actors.
+- Qualifying drone attacks now use the linked NPC pilot's complete Ranged
+  Attack Bonus plus weapon, Burst, manual, and ordinary situational modifiers.
+- Removed Stat and Skill choices from only the qualifying NPC-controlled drone
+  attack dialog; character-piloted drones retain native SWNR behavior.
+- Invalid or deleted NPC pilot links now stop safely with a clear warning.
+- Preserved SWNR's native ammunition, magazine, damage, Shock, Trauma, range,
+  Target Check, roll mode, Dice So Nice, and damage-button pipelines.
+- Prevented stored weapon description HTML from leaking into qualifying drone
+  attack headings while leaving normal Item description posts unchanged.
+- Added focused automated coverage for pilot resolution, roll routing,
+  modifier isolation, invalid links, method guards, and card sanitization.
+
 ## 0.13.8
 
 - Worked around SWNR 2.3.1 resetting a weapon's stored Stat to `Ask` during

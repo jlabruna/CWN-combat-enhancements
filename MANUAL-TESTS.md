@@ -1,11 +1,50 @@
 # Foundry VTT 14.365 / SWNR 2.3.1 manual test checklist
 
-Use a disposable world with CWN Combat Enhancements 0.13.8 enabled. Test with
+Use a disposable world with CWN Combat Enhancements 0.14.0 enabled. Test with
 actor-owned weapon and magazine Items. Give each magazine
 `type: "item"`, `system.uses.consumable: "count"`, positive
 `system.uses.value/max`, and a Magazine Family flag.
 
 Do not claim runtime success until these checks have been completed in Foundry.
+
+## v0.14.0 linked-NPC drone attacks
+
+1. Create or open an SWNR Drone with a weapon and assign an NPC as its native
+   pilot. Note the NPC's Ranged Attack Bonus and the weapon's Attack Bonus.
+2. Roll the drone weapon. Confirm the dialog shows only eligible Burst Fire and
+   the manual Modifier; it must not show Stat, Skill, or Remember controls.
+3. Roll without Burst or a manual modifier. Expand the attack result and confirm
+   the breakdown identifies the NPC pilot ranged attack bonus and weapon attack
+   bonus, with no drone Stat, Skill, NPC Skill Bonus, or untrained -2 entry.
+4. Check the total against: d20 + NPC pilot Ranged Attack Bonus + weapon Attack
+   Bonus. Confirm damage does not include the pilot Attack Bonus.
+5. Repeat with Burst Fire and with a positive and negative manual modifier.
+   Confirm the correct modifiers and normal ammunition costs apply once.
+6. Confirm ordinary damage, Shock, Trauma, range, Target Check, hit/miss output,
+   damage buttons, roll modes, and Dice So Nice remain functional.
+7. Attack repeatedly from the embedded weapon, actor sheet, and Token Action
+   HUD if installed. Confirm each attack uses the current pilot bonus and spends
+   ammunition only once.
+8. Reload from a physical compatible magazine, then attack again. Confirm exact
+   reload, partial/depleted magazine behavior, and selector refresh are intact.
+9. Change the linked NPC's Ranged Attack Bonus and attack again. Confirm the new
+   value is used without editing the drone or weapon.
+10. Remove or delete the linked pilot and attack. Confirm no roll occurs and the
+    warning reads: `This drone has no valid NPC pilot assigned.`
+11. Link a Character pilot and attack. Confirm SWNR's existing PC drone Stat,
+    Skill, remembered-setting, and roll behavior is unchanged.
+12. Roll a normal character weapon and a normal NPC weapon. Confirm their
+    existing dialogs, formulas, and modifier breakdowns are unchanged.
+13. Give the drone weapon a description containing paragraphs, bold text, and
+    line breaks. Attack and confirm none of that catalogue text or raw HTML is
+    inserted into the attack heading/card.
+14. Post the same Item description normally to chat and confirm its stored
+    description remains unchanged and displays normally.
+15. Test a synthetic/unlinked Drone token and a world Drone actor, each linked
+    to a valid world NPC pilot. Confirm both resolve and roll correctly.
+16. Ctrl+F5, repeat representative NPC-pilot and character-pilot attacks, and
+    confirm no duplicate dialog, duplicate ammunition spend, or relevant red
+    console error appears.
 
 ## v0.13.8 NPC weapon-roll compatibility
 

@@ -3,7 +3,12 @@ import {
   getCharacterWeaponRollDefaultChanges,
   installNpcWeaponRollCompatibility,
   shouldBindCharacterWeaponRollDefaults,
-} from "./npc-weapon-roll-compat.mjs?v=0.13.8";
+} from "./npc-weapon-roll-compat.mjs?v=0.14.0";
+import {
+  getNpcDroneAttackContext,
+  installNpcDroneAttackCompatibility,
+  stripDroneAttackDescription,
+} from "./npc-drone-attack.mjs?v=0.14.0";
 
 const MODULE_ID = "cwn-combat-enhancements";
 const ATTACK_FLAG = "attack";
@@ -47,6 +52,7 @@ Hooks.once("init", () => {
 Hooks.once("setup", () => {
   installNpcArmorCalculation();
   installNpcWeaponRollCompatibility();
+  installNpcDroneAttackCompatibility();
 });
 
 // Resolve portable Content Pack defaults in the embedded Item source before
@@ -247,6 +253,7 @@ Hooks.on("preCreateChatMessage", (message, data, _options, userId) => {
   const actor = attackerToken?.actor ?? game.actors.get(source.actorId);
   const weapon = actor?.items.get(source.itemId);
   if (weapon?.type !== "weapon") return;
+  const npcDroneContext = getNpcDroneAttackContext(weapon.system, game);
 
   const targetRefs = Array.from(game.user.targets)
     .map((token) => ({
@@ -265,10 +272,17 @@ Hooks.on("preCreateChatMessage", (message, data, _options, userId) => {
     attackerProne: tokenHasStatus(attackerToken, "prone"),
     targets: targetRefs,
     damage: source.damage,
-    breakdowns: buildRollBreakdowns(source.rollDetails, weapon),
+    breakdowns: buildRollBreakdowns(source.rollDetails, weapon, {
+      npcPilot: npcDroneContext.kind === "npc",
+    }),
   };
 
-  message.updateSource({ [`flags.${MODULE_ID}.${ATTACK_FLAG}`]: attackContext });
+  const update = { [`flags.${MODULE_ID}.${ATTACK_FLAG}`]: attackContext };
+  if (npcDroneContext.kind === "npc") {
+    const content = stripDroneAttackDescription(data.content ?? message.content);
+    if (content !== (data.content ?? message.content)) update.content = content;
+  }
+  message.updateSource(update);
 });
 
 Hooks.on("renderChatMessageHTML", (message, html) => {
@@ -376,15 +390,14 @@ function readDiceTotal(element) {
   return Number.isFinite(value) ? value : null;
 }
 
-function buildRollBreakdowns(rollDetails, weapon) {
+function buildRollBreakdowns(rollDetails, weapon, { npcPilot = false } = {}) {
   if (!rollDetails) return null;
 
   const attackBonusLabel = weapon.system?.isMelee
     ? "CWNCE.Breakdown.MeleeAttackBonus"
     : "CWNCE.Breakdown.RangedAttackBonus";
 
-  return {
-    hit: buildAdditiveBreakdown(rollDetails.hit, {
+  let hit = buildAdditiveBreakdown(rollDetails.hit, {
       baseLabel: "CWNCE.Breakdown.AttackDie",
       modifierLabels: [
         "CWNCE.Breakdown.BurstFire",
@@ -394,7 +407,20 @@ function buildRollBreakdowns(rollDetails, weapon) {
         "CWNCE.Breakdown.AttributeModifier",
         "CWNCE.Breakdown.SkillRank",
       ],
-    }),
+    });
+  if (npcPilot && hit) {
+    hit = hit
+      .filter((entry) => ![
+        "CWNCE.Breakdown.AttributeModifier",
+        "CWNCE.Breakdown.SkillRank",
+      ].includes(entry.label))
+      .map((entry) => entry.label === attackBonusLabel
+        ? { ...entry, label: "CWNCE.Breakdown.NpcPilotRangedAttackBonus" }
+        : entry);
+  }
+
+  return {
+    hit,
     damage: buildAdditiveBreakdown(rollDetails.damage, {
       baseLabel: "CWNCE.Breakdown.WeaponDamage",
       modifierLabels: [
