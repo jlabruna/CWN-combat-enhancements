@@ -46,7 +46,7 @@ classified for contextual, manual, or future handler-based automation.
 - The created message places the hit roll first in `rolls`, followed by any shock
   roll. This makes `message.rolls[0].total` the complete displayed attack total.
 
-### Linked NPC drone pilots
+### Linked drone pilots
 
 SWNR 2.3.1 represents a Drone as actor type `drone`. Its native linked pilot ID
 is the first entry in `system.crewMembers`, and derived preparation exposes the
@@ -62,8 +62,20 @@ supplies the NPC pilot bonus as both `ab` and `meleeAb`, because SWNR substitute
 removed immediately after SWNR captures its roll data. This keeps the bonus in
 To Hit only and preserves the rest of SWNR's attack pipeline.
 
-Character pilots bypass this boundary. Missing, deleted, and unsupported pilot
-types stop safely rather than falling through to an incorrect native formula.
+Release 0.15.0 extends that same narrow boundary to native links resolving to a
+player Character. The character calculation reads `system.ab`, compares
+`system.stats.dex.mod` with `system.stats.int.mod` (Dexterity wins ties), and
+compares the actor-owned Drive and Program Skill ranks (Program wins ties).
+The combined pilot value is supplied only through the temporary `ab` boundary;
+Stat, Skill, and damage-bonus arguments remain zero so no pilot contribution
+enters damage, Shock, Trauma Die, or Trauma damage. A genuine untrained rank of
+`-1` remains `-1` rather than passing through SWNR's weapon-skill `-2` fallback.
+
+The native Remote Control Unit cyberware Item is recognized for compatibility
+purposes, but SWNR 2.3.1 exposes no unambiguous per-attack remote/control-board
+state. This release therefore applies neither an RCU bonus nor a missing-RCU
+penalty. Missing, deleted, malformed, and unsupported pilot links stop safely
+rather than falling through to an incorrect native formula.
 
 ## Chat card
 

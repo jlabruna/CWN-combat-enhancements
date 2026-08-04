@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.15.0
+
+- Added linked player-character pilot attacks for SWNR Drone actors.
+- Character-piloted drones now use the pilot's Attack Bonus, the better of
+  Dexterity or Intelligence, and the better of Drive or Program for To Hit.
+- Dexterity wins equal attribute ties and Program wins equal Skill-rank ties;
+  genuine untrained ranks remain `-1` and are not converted to SWNR's `-2`
+  weapon-skill fallback.
+- Added a reduced character-pilot attack dialog with a read-only calculation
+  summary plus only Burst Fire and the manual modifier.
+- Added labelled pilot Attack Bonus, attribute, and Skill entries to expanded
+  attack modifier breakdowns without adding pilot values to damage, Shock, or
+  Trauma.
+- Recognizes native Remote Control Unit cyberware without applying a speculative
+  bonus or penalty because SWNR exposes no unambiguous control-board state.
+- Preserved the existing linked-NPC pilot path and all native SWNR ammunition,
+  damage, Shock, Trauma, targeting, chat-card, and Dice So Nice behavior.
+- Added automated coverage for pilot resolution, tie rules, missing and
+  untrained Skills, native pilot links, dialog contents, roll routing, and safe
+  malformed-link handling.
+
 ## 0.14.0
 
 - Added simplified linked-NPC pilot attacks for SWNR drone actors.

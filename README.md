@@ -42,8 +42,10 @@ Without Number Redux (SWNR) 2.3.1**, verified for Foundry VTT 14.365.
   -2 penalty or warning. PC weapon rolls and remembered settings are unchanged.
 - Gives SWNR drones linked to an NPC pilot a reduced Burst/manual-modifier
   attack dialog and uses the pilot's complete Ranged Attack Bonus for To Hit.
-  It does not add drone Stats, Skills, NPC Skill Bonus, or an untrained penalty,
-  and it leaves character-piloted drones on SWNR's native attack workflow.
+  For linked player-character pilots, it uses pilot Attack Bonus plus the better
+  of Dexterity or Intelligence and the better of Drive or Program. Dexterity
+  and Program win ties. Both paths affect To Hit only and preserve native SWNR
+  damage, ammunition, Shock, Trauma, targeting, and chat-card behavior.
 - Resolves an imported CWN Content Pack character weapon's explicit Shoot/Stab
   and native-Stat metadata to the receiving character's own Skill Item and its
   intended Dexterity, Strength, or Wisdom Stat. A tagged portable copy already
@@ -86,7 +88,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.14.0.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.15.0.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -100,6 +102,8 @@ meters, feet, yards, kilometres, or miles.
   `templates/dialogs/roll-attack.hbs`.
 - Drone pilots: `drone.system.crewMembers[0]`, with SWNR's resolved Actor at
   `drone.system.pilot`; NPC ranged Attack Bonus is `pilot.system.ab`.
+  Character pilots use `system.ab`, `system.stats.dex.mod`,
+  `system.stats.int.mod`, and actor-owned Drive/Program Skill ranks.
 - Attack card: `templates/chat/attack-roll.hbs`.
 - Card linkage: `data-actor-id` and `data-item-id` on `.chat-card.item-card`.
 - Attack roll: first roll on the resulting `ChatMessage` (`message.rolls[0]`).

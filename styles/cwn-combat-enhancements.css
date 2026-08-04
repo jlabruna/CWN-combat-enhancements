@@ -730,3 +730,19 @@
     grid-template-columns: minmax(0, 1fr) auto auto;
   }
 }
+.cwnce-drone-pilot-summary {
+  display: grid;
+  grid-template-columns: minmax(8rem, 1fr) auto;
+  gap: 0.25rem 1rem;
+  margin: 0 0.5rem 0.5rem;
+}
+
+.cwnce-drone-pilot-summary dt,
+.cwnce-drone-pilot-summary dd {
+  margin: 0;
+}
+
+.cwnce-drone-pilot-summary dd {
+  text-align: right;
+  font-weight: 600;
+}

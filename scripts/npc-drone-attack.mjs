@@ -1,10 +1,11 @@
 /**
- * Simplified linked-NPC pilot handling for SWNR drone weapon attacks.
+ * Pilot-aware handling for SWNR drone weapon attacks.
  *
  * SWNR drones store their pilot as the first `system.crewMembers` Actor ID and
- * expose the resolved Actor as `system.pilot`. NPC pilots do not have PC-style
- * Stats or Skills, so their complete ranged Attack Bonus is substituted only
- * for the attack roll while SWNR retains ownership of every later roll step.
+ * expose the resolved Actor as `system.pilot`. NPC pilots use their complete
+ * ranged Attack Bonus. Character pilots use Attack Bonus plus the better of
+ * Dexterity/Intelligence and Drive/Program. In both cases the contribution is
+ * substituted only for To Hit while SWNR retains every later roll step.
  */
 
 const MODULE_ID = "cwn-combat-enhancements";
@@ -45,10 +46,114 @@ export function getNpcDroneAttackContext(weaponModel, gameRef = globalThis.game)
   };
 }
 
+function findPilotSkill(pilot, name) {
+  const wanted = String(name).trim().toLocaleLowerCase();
+  return (pilot?.itemTypes?.skill ?? []).find(
+    (skill) => String(skill?.name ?? "").trim().toLocaleLowerCase() === wanted,
+  ) ?? null;
+}
+
+export function resolveCharacterPilotAttack(pilot) {
+  if (pilot?.type !== CHARACTER_TYPE) return null;
+
+  const dexterity = finiteNumber(pilot.system?.stats?.dex?.mod);
+  const intelligence = finiteNumber(pilot.system?.stats?.int?.mod);
+  const attribute = intelligence > dexterity
+    ? { key: "int", label: "Intelligence", value: intelligence }
+    : { key: "dex", label: "Dexterity", value: dexterity };
+
+  const driveItem = findPilotSkill(pilot, "Drive");
+  const programItem = findPilotSkill(pilot, "Program");
+  if (!driveItem && !programItem) return null;
+
+  const drive = driveItem ? finiteNumber(driveItem.system?.rank, -1) : null;
+  const program = programItem ? finiteNumber(programItem.system?.rank, -1) : null;
+  // Program wins equal-rank ties. If one Item is absent, use the Skill that is
+  // actually represented by the character rather than fabricating a rank.
+  const skill = drive != null && (program == null || drive > program)
+    ? { key: "drive", label: "Drive", value: drive }
+    : { key: "program", label: "Program", value: program };
+  const attackBonus = finiteNumber(pilot.system?.ab);
+
+  return {
+    pilot,
+    attackBonus,
+    attribute,
+    skill,
+    pilotTotal: attackBonus + attribute.value + skill.value,
+    // SWNR has no unambiguous per-attack control-board state. Recognising the
+    // native RCU Item is informational only; neither path adds a bonus/penalty.
+    hasRemoteControlUnit: (pilot.itemTypes?.cyberware ?? pilot.items ?? []).some(
+      (item) => item?.type === "cyberware" &&
+        String(item?.name ?? "").trim().toLocaleLowerCase() === "remote control unit",
+    ),
+  };
+}
+
+export function getDroneAttackContext(weaponModel, gameRef = globalThis.game) {
+  const actor = weaponModel?.parent?.actor;
+  const relationship = resolveNativeDronePilot(actor, gameRef);
+  if (relationship.kind === "npc") {
+    return {
+      ...relationship,
+      actor,
+      pilotBonus: finiteNumber(relationship.pilot.system?.ab),
+    };
+  }
+  if (relationship.kind === "character") {
+    const calculation = resolveCharacterPilotAttack(relationship.pilot);
+    return { ...relationship, actor, calculation };
+  }
+  return { ...relationship, actor };
+}
+
 export function buildNpcDroneAttackDialogContent({ actorId = "", canBurst = false } = {}) {
   return `<form class="flex cwnce-npc-drone-attack-dialog">
     <input type="hidden" name="actorId" value="${String(actorId).replaceAll('"', "&quot;")}">
     <div class="flex flex-col">
+      <div class="flex flexrow p-2 gap-2">
+        ${canBurst ? `<div class="flex flex-col">
+          <label for="burstFire">Burst Fire:</label>
+          <input type="checkbox" name="burstFire" id="burstFire">
+        </div>` : ""}
+        <div class="flex flex-col">
+          <label for="modifier">Modifier:</label>
+          <input name="modifier" type="number" step="1" value="0">
+        </div>
+      </div>
+    </div>
+  </form>`;
+}
+
+function signed(value) {
+  const number = finiteNumber(value);
+  return number >= 0 ? `+${number}` : String(number);
+}
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+export function buildCharacterDroneAttackDialogContent({
+  actorId = "",
+  canBurst = false,
+  calculation,
+} = {}) {
+  return `<form class="flex cwnce-npc-drone-attack-dialog">
+    <input type="hidden" name="actorId" value="${String(actorId).replaceAll('"', "&quot;")}">
+    <div class="flex flex-col">
+      <dl class="cwnce-drone-pilot-summary">
+        <dt>Pilot</dt><dd>${escapeHtml(calculation?.pilot?.name)}</dd>
+        <dt>Attack Bonus</dt><dd>${signed(calculation?.attackBonus)}</dd>
+        <dt>Attribute</dt><dd>${calculation?.attribute?.label ?? ""} ${signed(calculation?.attribute?.value)}</dd>
+        <dt>Skill</dt><dd>${calculation?.skill?.label ?? ""} ${signed(calculation?.skill?.value)}</dd>
+        <dt>Pilot Total</dt><dd>${signed(calculation?.pilotTotal)}</dd>
+      </dl>
       <div class="flex flexrow p-2 gap-2">
         ${canBurst ? `<div class="flex flex-col">
           <label for="burstFire">Burst Fire:</label>
@@ -141,6 +246,46 @@ export async function rollNpcPilotedDroneAttack({
   });
 }
 
+export async function rollCharacterPilotedDroneAttack({
+  weaponModel,
+  calculation,
+  gameRef = globalThis.game,
+  dialogApi = globalThis.foundry?.applications?.api?.DialogV2,
+} = {}) {
+  if (!dialogApi?.wait) throw new Error("Foundry DialogV2 is unavailable.");
+
+  const actor = weaponModel.parent.actor;
+  const title = gameRef.i18n.format("swnr.dialog.attackRoll", {
+    actorName: actor.name,
+    weaponName: weaponModel.parent.name,
+  });
+  const ammo = weaponModel.ammo;
+  const canBurst = Boolean(
+    ammo?.burst && ammo.type !== "none" && ammo.type !== "infinite" && ammo.value >= 3,
+  ) || Boolean(ammo?.burst && ammo.type === "infinite");
+
+  return dialogApi.wait({
+    window: { title },
+    content: buildCharacterDroneAttackDialogContent({ actorId: actor.id, canBurst, calculation }),
+    modal: false,
+    rejectClose: false,
+    buttons: [{
+      label: gameRef.i18n.localize("swnr.chat.roll"),
+      callback: async (_event, button) => {
+        const modifier = finiteNumber(button.form.elements.modifier?.value);
+        const burst = Boolean(button.form.elements.burstFire?.checked);
+        return callNativeAttackWithNpcPilot({
+          weaponModel,
+          pilotBonus: calculation.pilotTotal,
+          // Pilot AB, attribute and Skill are carried only by actor.ab. Passing
+          // Stat 0 prevents the chosen attribute from increasing damage/Shock.
+          args: [0, 0, 0, modifier, burst],
+        });
+      },
+    }],
+  });
+}
+
 export function stripDroneAttackDescription(content) {
   if (typeof content !== "string") return content;
   // SWNR's attack-roll template injects weapon.system.description only as the
@@ -168,7 +313,7 @@ export function installNpcDroneAttackCompatibility({
   const originalRoll = prototype?.roll;
   if (!prototype || typeof originalRoll !== "function" || typeof prototype.rollAttack !== "function") {
     logger.warn(
-      `${MODULE_ID} | SWNR weapon roll methods are unavailable; NPC drone attack compatibility was not installed.`,
+      `${MODULE_ID} | SWNR weapon roll methods are unavailable; drone pilot attack compatibility was not installed.`,
     );
     return { installed: false, reason: "missing-roll-methods" };
   }
@@ -178,20 +323,32 @@ export function installNpcDroneAttackCompatibility({
 
   Object.defineProperty(prototype, NPC_DRONE_ATTACK_PATCH, { value: true });
   prototype.roll = async function cwnNpcPilotedDroneWeaponRoll(...args) {
-    const context = getNpcDroneAttackContext(this, gameRef);
-    if (context.kind === "not-drone" || context.kind === "character") {
+    const context = getDroneAttackContext(this, gameRef);
+    if (context.kind === "not-drone") {
       return originalRoll.apply(this, args);
     }
-    if (context.kind !== "npc") {
-      notifications?.warn("This drone has no valid NPC pilot assigned.");
+    if (context.kind === "npc") {
+      return rollNpcPilotedDroneAttack({
+        weaponModel: this,
+        pilotBonus: context.pilotBonus,
+        gameRef,
+        dialogApi,
+      });
+    }
+    if (context.kind === "character" && context.calculation) {
+      return rollCharacterPilotedDroneAttack({
+        weaponModel: this,
+        calculation: context.calculation,
+        gameRef,
+        dialogApi,
+      });
+    }
+    if (context.kind === "character") {
+      notifications?.warn("Unable to resolve this drone pilot's Drive or Program skill.");
       return undefined;
     }
-    return rollNpcPilotedDroneAttack({
-      weaponModel: this,
-      pilotBonus: context.pilotBonus,
-      gameRef,
-      dialogApi,
-    });
+    notifications?.warn("This drone has no valid pilot assigned.");
+    return undefined;
   };
 
   return { installed: true, alreadyInstalled: false };

@@ -2,10 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  buildCharacterDroneAttackDialogContent,
   buildNpcDroneAttackDialogContent,
   callNativeAttackWithNpcPilot,
+  getDroneAttackContext,
   getNpcDroneAttackContext,
   installNpcDroneAttackCompatibility,
+  resolveCharacterPilotAttack,
   resolveNativeDronePilot,
   stripDroneAttackDescription,
 } from "../scripts/npc-drone-attack.mjs";
@@ -22,6 +25,29 @@ function actor({ type = "drone", pilot = null, crewMembers = ["pilot-id"] } = {}
 
 function npcPilot(ab = 7) {
   return { id: "pilot-id", type: "npc", system: { ab, skillBonus: 4 } };
+}
+
+function characterPilot({
+  ab = 1,
+  dex = 3,
+  int = 1,
+  drive = 0,
+  program = 2,
+  omitDrive = false,
+  omitProgram = false,
+} = {}) {
+  const skills = [
+    ...(!omitDrive ? [{ id: "drive", name: "Drive", type: "skill", system: { rank: drive } }] : []),
+    ...(!omitProgram ? [{ id: "program", name: "Program", type: "skill", system: { rank: program } }] : []),
+    { id: "shoot", name: "Shoot", type: "skill", system: { rank: 4 } },
+  ];
+  return {
+    id: "pc-id",
+    name: "Droney Guy",
+    type: "character",
+    system: { ab, stats: { dex: { mod: dex }, int: { mod: int } } },
+    itemTypes: { skill: skills, cyberware: [{ type: "cyberware", name: "Remote Control Unit" }] },
+  };
 }
 
 test("SWNR's native drone relationship resolves NPC and character pilots", () => {
@@ -65,6 +91,86 @@ test("the reduced dialog contains only Burst and manual modifier controls", () =
   assert.doesNotMatch(html, /name="stat"/);
   assert.doesNotMatch(html, /name="skill"/);
   assert.doesNotMatch(html, /name="remember"/);
+});
+
+test("character pilot calculation uses AB, better attribute, and better Drive or Program", () => {
+  const calculation = resolveCharacterPilotAttack(characterPilot());
+  assert.equal(calculation.attackBonus, 1);
+  assert.deepEqual(calculation.attribute, { key: "dex", label: "Dexterity", value: 3 });
+  assert.deepEqual(calculation.skill, { key: "program", label: "Program", value: 2 });
+  assert.equal(calculation.pilotTotal, 6);
+  assert.equal(calculation.hasRemoteControlUnit, true);
+});
+
+test("character pilot choices are deterministic and never use Shoot", () => {
+  const tied = resolveCharacterPilotAttack(characterPilot({ dex: 2, int: 2, drive: 1, program: 1 }));
+  assert.equal(tied.attribute.key, "dex");
+  assert.equal(tied.skill.key, "program");
+  assert.equal(tied.skill.value, 1);
+
+  const alternate = resolveCharacterPilotAttack(characterPilot({ dex: 0, int: 2, drive: 3, program: 1 }));
+  assert.equal(alternate.attribute.key, "int");
+  assert.equal(alternate.skill.key, "drive");
+  assert.equal(alternate.pilotTotal, 6);
+});
+
+test("character pilot Skill resolution handles untrained and missing Items safely", () => {
+  assert.equal(resolveCharacterPilotAttack(characterPilot({ drive: -1, program: 2 })).skill.value, 2);
+  assert.equal(resolveCharacterPilotAttack(characterPilot({ drive: 1, program: -1 })).skill.value, 1);
+  assert.deepEqual(
+    resolveCharacterPilotAttack(characterPilot({ drive: -1, program: -1 })).skill,
+    { key: "program", label: "Program", value: -1 },
+  );
+  assert.equal(
+    resolveCharacterPilotAttack(characterPilot({ omitDrive: true, program: 0 })).skill.key,
+    "program",
+  );
+  assert.equal(
+    resolveCharacterPilotAttack(characterPilot({ drive: 0, omitProgram: true })).skill.key,
+    "drive",
+  );
+  assert.equal(
+    resolveCharacterPilotAttack(characterPilot({ omitDrive: true, omitProgram: true })),
+    null,
+  );
+});
+
+test("character drone context resolves from the native relationship without a Scene token", () => {
+  const pilot = characterPilot();
+  const context = getDroneAttackContext(
+    { parent: { actor: actor({ pilot: null, crewMembers: [pilot.id] }) } },
+    { actors: { get: (id) => id === pilot.id ? pilot : null } },
+  );
+  assert.equal(context.kind, "character");
+  assert.equal(context.calculation.pilotTotal, 6);
+});
+
+test("character drone dialog shows its read-only summary without Stat, Skill, or Remember controls", () => {
+  const calculation = resolveCharacterPilotAttack(characterPilot());
+  calculation.pilot.name = '<script>alert("pilot")</script>';
+  const html = buildCharacterDroneAttackDialogContent({
+    actorId: "drone-id", canBurst: true, calculation,
+  });
+  assert.match(html, /&lt;script&gt;alert\(&quot;pilot&quot;\)&lt;\/script&gt;/);
+  assert.doesNotMatch(html, /<script>/);
+  assert.match(html, /Dexterity \+3/);
+  assert.match(html, /Program \+2/);
+  assert.match(html, /Pilot Total<\/dt><dd>\+6/);
+  assert.match(html, /name="burstFire"/);
+  assert.match(html, /name="modifier"/);
+  assert.doesNotMatch(html, /name="stat"|name="skill"|name="remember"/);
+});
+
+test("Remote Control Unit recognition is informational and never changes the pilot total", () => {
+  const withUnit = characterPilot({ ab: 2, dex: 1, int: 3, drive: 0, program: 2 });
+  const withoutUnit = structuredClone(withUnit);
+  withoutUnit.itemTypes.cyberware = [];
+  const recognized = resolveCharacterPilotAttack(withUnit);
+  const absent = resolveCharacterPilotAttack(withoutUnit);
+  assert.equal(recognized.hasRemoteControlUnit, true);
+  assert.equal(absent.hasRemoteControlUnit, false);
+  assert.equal(recognized.pilotTotal, 7);
+  assert.equal(absent.pilotTotal, 7);
 });
 
 test("pilot Attack Bonus replaces actor AB for To Hit but Stat and Skill stay zero", async () => {
@@ -188,21 +294,37 @@ test("qualifying attacks use the reduced dialog and native rollAttack pipeline",
   }]);
 });
 
-test("character-piloted drones and non-drone weapons retain native roll behavior", async () => {
+test("character-piloted drones use the pilot formula while non-drone weapons retain native behavior", async () => {
   const calls = [];
+  const pilot = characterPilot();
+  const drone = actor({ pilot });
   const prototype = {
-    parent: { actor: actor({ pilot: { type: "character" } }) },
+    ammo: { type: "ammo", burst: true, value: 10 },
+    parent: { actor: drone, name: "Drone Gun" },
     async roll(...args) { calls.push(args); return "native"; },
-    async rollAttack() {},
+    async rollAttack(...args) {
+      return { args, rollData: this.parent.actor.getRollData() };
+    },
   };
   installNpcDroneAttackCompatibility({
-    gameRef: { system: { id: "swnr" } },
+    gameRef: {
+      system: { id: "swnr" },
+      i18n: { format: () => "Attack", localize: () => "Roll" },
+    },
     config: { Item: { dataModels: { weapon: { prototype } } } },
+    dialogApi: {
+      wait: (options) => options.buttons[0].callback(null, {
+        form: { elements: { modifier: { value: "1" }, burstFire: { checked: true } } },
+      }),
+    },
   });
-  assert.equal(await prototype.roll(false), "native");
+  assert.deepEqual(await prototype.roll(false), {
+    args: [0, 0, 0, 1, true],
+    rollData: { ab: 6, meleeAb: 6, description: "<p>Catalogue text</p>" },
+  });
   prototype.parent = { actor: actor({ type: "character", pilot: null }) };
   assert.equal(await prototype.roll(true), "native");
-  assert.deepEqual(calls, [[false], [true]]);
+  assert.deepEqual(calls, [[true]]);
 });
 
 test("an unlinked drone warns and does not roll", async () => {
@@ -218,7 +340,26 @@ test("an unlinked drone warns and does not roll", async () => {
     notifications: { warn: (message) => warnings.push(message) },
   });
   assert.equal(await prototype.roll(), undefined);
-  assert.deepEqual(warnings, ["This drone has no valid NPC pilot assigned."]);
+  assert.deepEqual(warnings, ["This drone has no valid pilot assigned."]);
+});
+
+test("malformed character pilot warns without rolling or consuming ammunition", async () => {
+  const warnings = [];
+  const pilot = characterPilot({ omitDrive: true, omitProgram: true });
+  const prototype = {
+    ammo: { type: "ammo", value: 4 },
+    parent: { actor: actor({ pilot }) },
+    async roll() { throw new Error("native roll must not run"); },
+    async rollAttack() { throw new Error("attack must not run"); },
+  };
+  installNpcDroneAttackCompatibility({
+    gameRef: { system: { id: "swnr" } },
+    config: { Item: { dataModels: { weapon: { prototype } } } },
+    notifications: { warn: (message) => warnings.push(message) },
+  });
+  assert.equal(await prototype.roll(), undefined);
+  assert.equal(prototype.ammo.value, 4);
+  assert.deepEqual(warnings, ["Unable to resolve this drone pilot's Drive or Program skill."]);
 });
 
 test("attack description field is removed without altering ordinary Item cards", () => {

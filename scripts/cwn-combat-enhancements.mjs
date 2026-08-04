@@ -3,12 +3,12 @@ import {
   getCharacterWeaponRollDefaultChanges,
   installNpcWeaponRollCompatibility,
   shouldBindCharacterWeaponRollDefaults,
-} from "./npc-weapon-roll-compat.mjs?v=0.14.0";
+} from "./npc-weapon-roll-compat.mjs?v=0.15.0";
 import {
-  getNpcDroneAttackContext,
+  getDroneAttackContext,
   installNpcDroneAttackCompatibility,
   stripDroneAttackDescription,
-} from "./npc-drone-attack.mjs?v=0.14.0";
+} from "./npc-drone-attack.mjs?v=0.15.0";
 
 const MODULE_ID = "cwn-combat-enhancements";
 const ATTACK_FLAG = "attack";
@@ -253,7 +253,7 @@ Hooks.on("preCreateChatMessage", (message, data, _options, userId) => {
   const actor = attackerToken?.actor ?? game.actors.get(source.actorId);
   const weapon = actor?.items.get(source.itemId);
   if (weapon?.type !== "weapon") return;
-  const npcDroneContext = getNpcDroneAttackContext(weapon.system, game);
+  const droneContext = getDroneAttackContext(weapon.system, game);
 
   const targetRefs = Array.from(game.user.targets)
     .map((token) => ({
@@ -273,12 +273,15 @@ Hooks.on("preCreateChatMessage", (message, data, _options, userId) => {
     targets: targetRefs,
     damage: source.damage,
     breakdowns: buildRollBreakdowns(source.rollDetails, weapon, {
-      npcPilot: npcDroneContext.kind === "npc",
+      npcPilot: droneContext.kind === "npc",
+      characterPilot: droneContext.kind === "character"
+        ? droneContext.calculation
+        : null,
     }),
   };
 
   const update = { [`flags.${MODULE_ID}.${ATTACK_FLAG}`]: attackContext };
-  if (npcDroneContext.kind === "npc") {
+  if (droneContext.kind === "npc" || droneContext.kind === "character") {
     const content = stripDroneAttackDescription(data.content ?? message.content);
     if (content !== (data.content ?? message.content)) update.content = content;
   }
@@ -390,7 +393,11 @@ function readDiceTotal(element) {
   return Number.isFinite(value) ? value : null;
 }
 
-function buildRollBreakdowns(rollDetails, weapon, { npcPilot = false } = {}) {
+function buildRollBreakdowns(
+  rollDetails,
+  weapon,
+  { npcPilot = false, characterPilot = null } = {},
+) {
   if (!rollDetails) return null;
 
   const attackBonusLabel = weapon.system?.isMelee
@@ -417,6 +424,36 @@ function buildRollBreakdowns(rollDetails, weapon, { npcPilot = false } = {}) {
       .map((entry) => entry.label === attackBonusLabel
         ? { ...entry, label: "CWNCE.Breakdown.NpcPilotRangedAttackBonus" }
         : entry);
+  }
+  if (characterPilot && hit) {
+    hit = hit.flatMap((entry) => {
+      if ([
+        "CWNCE.Breakdown.AttributeModifier",
+        "CWNCE.Breakdown.SkillRank",
+      ].includes(entry.label)) return [];
+      if (entry.label !== attackBonusLabel) return [entry];
+      return [
+        {
+          ...entry,
+          label: "CWNCE.Breakdown.CharacterPilotAttackBonus",
+          value: String(characterPilot.attackBonus),
+        },
+        {
+          ...entry,
+          label: characterPilot.attribute.key === "int"
+            ? "CWNCE.Breakdown.PilotIntelligence"
+            : "CWNCE.Breakdown.PilotDexterity",
+          value: String(characterPilot.attribute.value),
+        },
+        {
+          ...entry,
+          label: characterPilot.skill.key === "drive"
+            ? "CWNCE.Breakdown.PilotDrive"
+            : "CWNCE.Breakdown.PilotProgram",
+          value: String(characterPilot.skill.value),
+        },
+      ];
+    });
   }
 
   return {
