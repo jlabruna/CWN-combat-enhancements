@@ -1,13 +1,13 @@
 # Foundry VTT 14.365 / SWNR 2.3.1 manual test checklist
 
-Use a disposable world with CWN Combat Enhancements 0.16.0 enabled. Test with
+Use a disposable world with CWN Combat Enhancements 0.16.1 enabled. Test with
 actor-owned weapon and magazine Items. Give each magazine
 `type: "item"`, `system.uses.consumable: "count"`, positive
 `system.uses.value/max`, and a Magazine Family flag.
 
 Do not claim runtime success until these checks have been completed in Foundry.
 
-## v0.16.0 active Network Console hacker sessions
+## v0.16.1 active Network Console hacker sessions
 
 Use one active GM and at least two player users. Give each player ownership of a
 Character hacker and an SWNR cyberdeck linked to that hacker. Prepare at least

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.16.1
+
+- Fixed the GitHub Actions test command so the v0.16 active-session release can
+  be validated and packaged correctly on the Linux Node.js runner.
+- No Network Console behavior changed from 0.16.0.
+
 ## 0.16.0
 
 - Added durable, GM-authoritative active hacker sessions to the experimental

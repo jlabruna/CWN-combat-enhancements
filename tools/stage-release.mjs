@@ -5,10 +5,10 @@ import { fileURLToPath } from "node:url";
 const moduleRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const releaseRoot = path.join(moduleRoot, "release");
 const stageRoot = path.join(releaseRoot, "cwn-combat-enhancements");
-const browserUploadRoot = path.join(releaseRoot, "github-upload-v0.16.0");
+const browserUploadRoot = path.join(releaseRoot, "github-upload-v0.16.1");
 const browserDotfilesRoot = path.join(
   releaseRoot,
-  "github-dotfiles-upload-v0.16.0",
+  "github-dotfiles-upload-v0.16.1",
 );
 const files = [
   "CHANGELOG.md",
@@ -35,8 +35,8 @@ for (const directory of directories) {
 const manifest = JSON.parse(
   await fs.readFile(path.join(stageRoot, "module.json"), "utf8"),
 );
-if (manifest.version !== "0.16.0") {
-  throw new Error(`Expected module version 0.16.0 but found ${manifest.version}.`);
+if (manifest.version !== "0.16.1") {
+  throw new Error(`Expected module version 0.16.1 but found ${manifest.version}.`);
 }
 if (
   !manifest.download.endsWith(
@@ -87,7 +87,7 @@ for (const filename of ["en.json"]) {
 }
 for (const filename of [
   "chat-card.mjs",
-  "cwn-combat-enhancements-v0.16.0.mjs",
+  "cwn-combat-enhancements-v0.16.1.mjs",
   "cwn-combat-enhancements.mjs",
   "foundry-compat.mjs",
   "magazine-reload.mjs",
