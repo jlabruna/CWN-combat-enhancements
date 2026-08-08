@@ -30,6 +30,17 @@
         </header>
       {{/if}}
 
+      {{#if hasNetworkNotices}}
+        <section class="cwnce-network-notices" aria-live="polite">
+          {{#each networkNotices}}
+            <article class="cwnce-network-notice is-{{level}}">
+              <i class="fa-solid fa-satellite-dish"></i>
+              <div><strong>{{title}}</strong><span>{{message}}</span></div>
+            </article>
+          {{/each}}
+        </section>
+      {{/if}}
+
       {{#unless hasNetwork}}
         <div class="cwnce-network-empty">
           <i class="fa-solid fa-network-wired"></i>
@@ -43,6 +54,17 @@
           {{/if}}
         </div>
       {{else}}
+        {{#unless isGM}}
+          <section class="cwnce-player-connection-status {{#if playerConnected}}is-connected{{else}}is-disconnected{{/if}}">
+            {{#if playerConnected}}
+              <i class="fa-solid fa-link"></i>
+              <strong>Connected:</strong> {{currentSession.hackerName}} via {{currentSession.cyberdeckName}} at {{currentSession.currentNodeName}}
+            {{else}}
+              <i class="fa-solid fa-link-slash"></i>
+              <strong>Not connected.</strong> Select a revealed entry node and request Jack In.
+            {{/if}}
+          </section>
+        {{/unless}}
         <div class="cwnce-network-layout {{#if isGM}}is-gm{{else}}is-player{{/if}}">
           {{#if isGM}}
             <aside class="cwnce-network-sidebar">
@@ -229,8 +251,7 @@
                   <label>Target<select name="target">{{#each selectedConnection.nodeOptions}}<option value="{{id}}" {{#if targetSelected}}selected{{/if}}>{{name}}</option>{{/each}}</select></label>
                   <label class="checkbox"><input type="checkbox" name="revealed" {{#if selectedConnection.revealed}}checked{{/if}}> Revealed</label>
                   <label class="checkbox"><input type="checkbox" name="oneWay" {{#if selectedConnection.oneWay}}checked{{/if}}> One Way</label>
-                  <label class="checkbox"><input type="checkbox" name="barrier" {{#if selectedConnection.barrier}}checked{{/if}}> Barrier</label>
-                  <label class="checkbox"><input type="checkbox" name="barrierLocked" {{#if selectedConnection.barrierLocked}}checked{{/if}}> Barrier Locked</label>
+                  <label>Barrier<select name="barrierState"><option value="none" {{#if selectedConnection.barrierNone}}selected{{/if}}>No Barrier</option><option value="unlocked" {{#if selectedConnection.barrierUnlocked}}selected{{/if}}>Unlocked Barrier</option><option value="locked" {{#if selectedConnection.barrierLockedSelected}}selected{{/if}}>Locked Barrier</option></select></label>
                   <label>Private GM Notes<textarea name="gmNotes" rows="4">{{selectedConnection.gmNotes}}</textarea></label>
                   <button type="button" data-action="saveConnectionInspector"><i class="fa-solid fa-floppy-disk"></i> Save Connection</button>
                   <button type="button" class="danger" data-action="deleteConnection" data-connection-id="{{selectedConnection.id}}"><i class="fa-solid fa-trash"></i> Delete Connection</button>
@@ -352,7 +373,7 @@
                       </button>
                     {{/each}}
                   </div>
-                  <p class="prototype-note">Jack In, Move Nodes, and Jack Out use GM-approved active sessions. Other requests notify the GM. Run a Program uses prepared Verbs and Subjects but does not roll checks, spend Access, or execute programs automatically.</p>
+                  <p class="prototype-note">Session movement, Run a Program, and Copy File are GM-approved. Program execution rolls its check and spends Access; its network effect remains for GM adjudication.</p>
                 {{/if}}
               {{else}}
                 <div class="cwnce-network-empty compact"><i class="fa-solid fa-arrow-pointer"></i><p>Select a node or connection to inspect it.</p></div>

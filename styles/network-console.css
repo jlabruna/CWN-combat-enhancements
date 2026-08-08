@@ -283,6 +283,39 @@
   overflow: visible;
 }
 
+.cwnce-network-notices {
+  display: grid;
+  gap: 0.3rem;
+  padding: 0.4rem 0.65rem;
+  border-bottom: 1px solid var(--cwnce-net-line);
+  background: rgba(10, 17, 24, 0.96);
+}
+
+.cwnce-network-notice {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 0.45rem;
+  align-items: center;
+  padding: 0.35rem 0.5rem;
+  border-left: 3px solid var(--cwnce-net-cyan);
+  background: var(--cwnce-net-panel);
+}
+
+.cwnce-network-notice > div { display: grid; }
+.cwnce-network-notice span { color: var(--cwnce-net-muted); }
+.cwnce-network-notice.is-success { border-left-color: var(--cwnce-net-green); }
+.cwnce-network-notice.is-warning { border-left-color: var(--cwnce-net-yellow); }
+.cwnce-network-notice.is-error { border-left-color: var(--cwnce-net-red); }
+
+.cwnce-player-connection-status {
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid var(--cwnce-net-line);
+  background: rgba(10, 17, 24, 0.96);
+  color: var(--cwnce-net-yellow);
+}
+
+.cwnce-player-connection-status.is-connected { color: var(--cwnce-net-green); }
+
 .cwnce-graph-edges:not([data-geometry-ready="true"]) {
   visibility: hidden;
 }

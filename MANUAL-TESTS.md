@@ -1,11 +1,43 @@
 # Foundry VTT 14.365 / SWNR 2.3.1 manual test checklist
 
-Use a disposable world with CWN Combat Enhancements 0.17.0 enabled. Test with
+Use a disposable world with CWN Combat Enhancements 0.17.1 enabled. Test with
 actor-owned weapon and magazine Items. Give each magazine
 `type: "item"`, `system.uses.consumable: "count"`, positive
 `system.uses.value/max`, and a Magazine Family flag.
 
 Do not claim runtime success until these checks have been completed in Foundry.
+
+## v0.17.1 Network Console request and player-feedback patch
+
+Use one active GM and one player with two controlled linked cyberdecks. Create
+a network containing revealed and hidden nodes, an ordinary connection, a
+locked Barrier, and a revealed datafile.
+
+1. Open the player console before Jack In. Confirm it displays **Not
+   connected**. Reject a Jack In request and confirm both clients receive a
+   themed notice which disappears after about ten seconds.
+2. Approve Jack In. Confirm the player status displays the correct hacker,
+   cyberdeck, and node. Force-end the session as GM and confirm the player sees
+   the themed result and returns to **Not connected**.
+3. Create a new connection between two revealed nodes. Confirm it is revealed
+   by default. Confirm the connection inspector has one Barrier selector with
+   No Barrier, Unlocked Barrier, and Locked Barrier choices.
+4. Request movement through a locked Barrier and toward a hidden node. Confirm
+   the player receives a clear themed refusal in each case. Approve and reject
+   valid movement once each and confirm the player sees both results.
+5. Jack In with the first cyberdeck, then Run Program. Confirm only that active
+   session cyberdeck's prepared Verbs and Subjects are offered even though the
+   player controls a second cyberdeck.
+6. Send Run Program with player and GM computer clocks deliberately different,
+   if practical. Confirm the GM receives the approval dialog rather than an
+   immediate expired warning. Reject once, then approve once and confirm the
+   themed result reaches both users.
+7. Request Copy File from the current node. Confirm the GM receives an approval
+   dialog. Reject once and verify the datafile stays uncopied; approve once and
+   verify **Copied** is persisted and both users receive a themed result.
+8. Close and reopen the console, switch networks, and Ctrl+F5 both clients.
+   Confirm session projection, copied state, hidden topology, and Program
+   execution remain correct with no relevant red console errors.
 
 ## v0.17.0 active Network Console Program execution
 

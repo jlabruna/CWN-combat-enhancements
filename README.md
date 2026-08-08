@@ -88,7 +88,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.17.0.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.17.1.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -280,9 +280,11 @@ across revealed connections; direction and locked barriers are enforced.
 Wireless sessions carry a displayed RAW `-2` context and cannot Move Nodes.
 Players can request **Jack Out**, and the GM can force-end any active session.
 Hacker avatars appear on their current nodes, including multiple hackers on one
-node. **Look for Hidden Connections**, **Copy File**, and **Issue Command**
-remain request-only workflows. **Run a Program** now has an active-GM approval
-and execution path.
+node. **Look for Hidden Connections** and **Issue Command** remain request-only
+workflows. **Copy File** now asks the active GM for approval and marks the live
+revealed datafile as copied when approved. **Run a Program** has an active-GM
+approval and execution path. The console displays themed request/result notices
+for both users and a persistent Connected/Not connected panel for players.
 
 Canonical sessions are stored only in the GM Journal network flag. They record
 the requesting user, hacker and cyberdeck UUIDs/names, entry and current nodes,
@@ -291,16 +293,19 @@ contains no sessions. Each player receives a targeted socket projection of only
 their own safe session fields; hidden topology and other players' sessions are
 not included.
 
-**Run a Program** requires an active hacker session and finds SWNR cyberdeck
-Actors linked to a hacker controlled by the requesting player. The player can
-only choose Verbs and Subjects embedded on that cyberdeck. The active GM
+**Run a Program** requires an active hacker session and uses the exact SWNR
+cyberdeck stored on that session. The player can only choose Verbs and Subjects
+embedded on that cyberdeck; their most recently selected cyberdeck is remembered
+locally for later Jack In choices. The active GM
 re-resolves ownership, linkage, prepared programs, compatibility, current node,
 Access, and CPU from live documents before approval and once more before
 execution. Approval spends Access, creates a persistent running Program Item or
 removes a self-terminating one after the roll, and performs an SWNR-style check.
 Wireless sessions apply the RAW `-2` only to that roll; the cyberdeck's saved
 wireless setting is not changed. Results are whispered to the GM and requesting
-player. Program effects and opposed results remain GM-adjudicated.
+player. Request age is measured from the active GM's receipt time, avoiding
+false expiry when client clocks differ. Program effects and opposed results
+remain GM-adjudicated.
 
 The encounter controls remain deliberately GM-directed. The console does not:
 

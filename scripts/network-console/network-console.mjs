@@ -118,7 +118,42 @@ const PLAYER_ACTIONS = [
 let networkConsoleApp = null;
 let playerSessionProjection = null;
 const programRequestStates = new Map();
+const copyFileRequestStates = new Map();
+const networkNotices = [];
 let programExecutionQueue = Promise.resolve();
+
+const NETWORK_NOTICE_TTL_MS = 10_000;
+
+function addNetworkNotice(message, level = "info", title = "Network Console") {
+  const id = foundry.utils.randomID();
+  networkNotices.push({ id, message: String(message || ""), level, title });
+  while (networkNotices.length > 8) networkNotices.shift();
+  renderOpenNetworkConsole();
+  setTimeout(() => {
+    const index = networkNotices.findIndex((notice) => notice.id === id);
+    if (index >= 0) networkNotices.splice(index, 1);
+    renderOpenNetworkConsole();
+  }, NETWORK_NOTICE_TTL_MS);
+}
+
+function sendNetworkRequestResult(payload, status, message, actionId = payload.actionId) {
+  if (!payload?.userId) return;
+  game.socket.emit(SOCKET_NAME, {
+    type: "networkRequestResult",
+    targetUserId: payload.userId,
+    requestId: payload.requestId ?? "",
+    actionId,
+    status,
+    message,
+  });
+}
+
+function networkStatusLevel(status) {
+  if (status === "success") return "success";
+  if (status === "pending") return "info";
+  if (status === "rejected") return "warning";
+  return "error";
+}
 
 Hooks.once("init", () => {
   game.settings.register(MODULE_ID, "enableNetworkConsole", {
@@ -152,6 +187,14 @@ Hooks.once("init", () => {
 
   game.settings.register(MODULE_ID, "networkConsoleGeometry", {
     name: "Network Console Geometry",
+    scope: "client",
+    config: false,
+    type: String,
+    default: "",
+  });
+
+  game.settings.register(MODULE_ID, "networkConsoleLastCyberdeckUuid", {
+    name: "Last Network Console Cyberdeck",
     scope: "client",
     config: false,
     type: String,
@@ -524,16 +567,24 @@ function preparedProgramOptionMarkup(programs) {
     .join("");
 }
 
-async function choosePreparedProgram() {
-  const availableDecks = getPreparedCyberdecks();
+async function choosePreparedProgram({ hackerUuid = "", cyberdeckUuid = "" } = {}) {
+  const availableDecks = getPreparedCyberdecks().filter(({ hacker, cyberdeck }) =>
+    (!hackerUuid || hacker.uuid === hackerUuid) &&
+    (!cyberdeckUuid || cyberdeck.uuid === cyberdeckUuid),
+  );
   if (!availableDecks.length) {
-    ui.notifications.warn(
-      "No cyberdeck linked to a hacker you control was found. Assign the hacker on the SWNR cyberdeck sheet first.",
+    addNetworkNotice(
+      "The cyberdeck used by this hacker session is unavailable or has no prepared programs.",
+      "warning",
+      "Run Program",
     );
     return null;
   }
 
-  let selectedDeck = availableDecks[0];
+  const rememberedUuid = game.settings.get(MODULE_ID, "networkConsoleLastCyberdeckUuid");
+  let selectedDeck =
+    availableDecks.find(({ cyberdeck }) => cyberdeck.uuid === rememberedUuid) ??
+    availableDecks[0];
   if (availableDecks.length > 1) {
     const deckOptions = availableDecks
       .map(({ cyberdeck, hacker }) =>
@@ -556,10 +607,16 @@ async function choosePreparedProgram() {
       availableDecks.find(({ cyberdeck }) => cyberdeck.id === deckData.cyberdeckId) ??
       null;
     if (!selectedDeck) {
-      ui.notifications.error("The selected cyberdeck is no longer available.");
+      addNetworkNotice("The selected cyberdeck is no longer available.", "error", "Run Program");
       return null;
     }
   }
+
+  await game.settings.set(
+    MODULE_ID,
+    "networkConsoleLastCyberdeckUuid",
+    selectedDeck.cyberdeck.uuid,
+  );
 
   if (!selectedDeck.verbs.length || !selectedDeck.subjects.length) {
     const missing = [
@@ -568,8 +625,10 @@ async function choosePreparedProgram() {
     ]
       .filter(Boolean)
       .join(" and ");
-    ui.notifications.warn(
+    addNetworkNotice(
       `${selectedDeck.cyberdeck.name} needs ${missing} loaded before it can run a program.`,
+      "warning",
+      "Run Program",
     );
     return null;
   }
@@ -602,14 +661,18 @@ async function choosePreparedProgram() {
   const verb = selectedDeck.verbs.find((item) => item.id === programData.verbId);
   const subject = selectedDeck.subjects.find((item) => item.id === programData.subjectId);
   if (!verb || !subject) {
-    ui.notifications.error(
+    addNetworkNotice(
       "The selected Verb or Subject is no longer loaded on that cyberdeck.",
+      "error",
+      "Run Program",
     );
     return null;
   }
   if (!programsAreCompatible(verb, subject)) {
-    ui.notifications.warn(
+    addNetworkNotice(
       `${verb.name} cannot target ${subject.name}. Choose a Subject matching ${verb.system?.target || "the Verb's allowed target type"}.`,
+      "warning",
+      "Run Program",
     );
     return null;
   }
@@ -629,19 +692,31 @@ async function choosePreparedProgram() {
 async function chooseHackerAndCyberdeck() {
   const available = getPreparedCyberdecks();
   if (!available.length) {
-    ui.notifications.warn("No cyberdeck linked to a hacker you control was found. Assign the hacker on the SWNR cyberdeck sheet first.");
+    addNetworkNotice(
+      "No cyberdeck linked to a hacker you control was found. Assign the hacker on the SWNR cyberdeck sheet first.",
+      "warning",
+      "Jack In",
+    );
     return null;
   }
-  if (available.length === 1) return available[0];
+  if (available.length === 1) {
+    await game.settings.set(MODULE_ID, "networkConsoleLastCyberdeckUuid", available[0].cyberdeck.uuid);
+    return available[0];
+  }
+  const rememberedUuid = game.settings.get(MODULE_ID, "networkConsoleLastCyberdeckUuid");
   const options = available.map(({ hacker, cyberdeck }) =>
-    `<option value="${cyberdeck.uuid}">${foundry.utils.escapeHTML(`${hacker.name} — ${cyberdeck.name}`)}</option>`,
+    `<option value="${cyberdeck.uuid}"${cyberdeck.uuid === rememberedUuid ? " selected" : ""}>${foundry.utils.escapeHTML(`${hacker.name} — ${cyberdeck.name}`)}</option>`,
   ).join("");
   const data = await waitForFormDialog({
     title: "Choose Hacker and Cyberdeck",
     saveLabel: "Choose Cyberdeck",
     content: `<div class="form-group"><label>Hacker — Cyberdeck</label><select name="cyberdeckUuid" required autofocus>${options}</select></div>`,
   });
-  return available.find(({ cyberdeck }) => cyberdeck.uuid === data?.cyberdeckUuid) ?? null;
+  const selected = available.find(({ cyberdeck }) => cyberdeck.uuid === data?.cyberdeckUuid) ?? null;
+  if (selected) {
+    await game.settings.set(MODULE_ID, "networkConsoleLastCyberdeckUuid", selected.cyberdeck.uuid);
+  }
+  return selected;
 }
 
 function findNetworkDocumentByNetworkId(networkId) {
@@ -665,7 +740,9 @@ async function approveJackIn(payload) {
   const node = findNode(network, payload.nodeId);
   const resolved = await resolveSessionActors(payload);
   if (!journal || !network || !node?.revealed || !resolved) {
-    ui.notifications.warn("A Jack In request was rejected because its hacker, cyberdeck, network, or node is no longer valid.");
+    const message = "Jack In was rejected because its hacker, cyberdeck, network, or node is no longer valid.";
+    addNetworkNotice(message, "warning", "Jack In");
+    sendNetworkRequestResult(payload, "rejected", message);
     return;
   }
   const connectionType = payload.connectionType === "wireless" ? "wireless" : "physical";
@@ -674,7 +751,8 @@ async function approveJackIn(payload) {
     `${foundry.utils.escapeHTML(resolved.user.name)} requests ${connectionType} access for ${foundry.utils.escapeHTML(resolved.hacker.name)} using ${foundry.utils.escapeHTML(resolved.cyberdeck.name)} at ${foundry.utils.escapeHTML(node.name)}.${connectionType === "wireless" ? " Wireless access carries the RAW −2 context and cannot Move Nodes." : ""}`,
   );
   if (!approved) {
-    ui.notifications.info(`Jack In rejected for ${resolved.user.name}.`, { permanent: true });
+    addNetworkNotice(`Jack In rejected for ${resolved.user.name}.`, "warning", "Jack In");
+    sendNetworkRequestResult(payload, "rejected", "The GM rejected your Jack In request.");
     return;
   }
   const result = addHackerSession(network, createHackerSession({
@@ -685,29 +763,44 @@ async function approveJackIn(payload) {
     nodeId: node.id, connectionType,
   }));
   if (!result.added) {
-    ui.notifications.error(`Could not create hacker session: ${result.reason}.`);
+    const message = `Could not create hacker session: ${result.reason}.`;
+    addNetworkNotice(message, "error", "Jack In");
+    sendNetworkRequestResult(payload, "failed", message);
     return;
   }
   await saveNetwork(journal, result.network);
-  ui.notifications.info(`${resolved.hacker.name} jacked in at ${node.name}.`, { permanent: true });
+  const message = `${resolved.hacker.name} jacked in at ${node.name}.`;
+  addNetworkNotice(message, "success", "Jack In");
+  sendNetworkRequestResult(payload, "success", message);
 }
 
 async function approveSessionMove(payload) {
   if (game.users.activeGM?.id !== game.user.id) return;
   const journal = findNetworkDocumentByNetworkId(payload.networkId);
   const network = getNetworkData(journal);
-  if (!journal || !network) return;
+  if (!journal || !network) {
+    sendNetworkRequestResult(payload, "failed", "The active network is no longer available.");
+    return;
+  }
   const validation = validateHackerMove(network, payload.sessionId, payload.destinationNodeId, payload.userId);
   if (!validation.allowed) {
     const messages = { wireless: "Wireless hacker sessions cannot Move Nodes.", "locked-barrier": "That route is blocked by a locked barrier.", "not-adjacent": "The destination is not one directly connected hop away.", "hidden-destination": "That destination is not visible to the player." };
-    ui.notifications.warn(messages[validation.reason] ?? "That hacker session cannot make the requested move.", { permanent: true });
+    const message = messages[validation.reason] ?? "That hacker session cannot make the requested move.";
+    addNetworkNotice(message, "warning", "Move Nodes");
+    sendNetworkRequestResult(payload, "rejected", message);
     return;
   }
-  if (!await confirmAction("Approve Hacker Movement", `Move ${foundry.utils.escapeHTML(validation.session.hackerName)} to ${foundry.utils.escapeHTML(validation.destination.name)}?`)) return;
+  if (!await confirmAction("Approve Hacker Movement", `Move ${foundry.utils.escapeHTML(validation.session.hackerName)} to ${foundry.utils.escapeHTML(validation.destination.name)}?`)) {
+    addNetworkNotice(`Move Nodes rejected for ${validation.session.hackerName}.`, "warning", "Move Nodes");
+    sendNetworkRequestResult(payload, "rejected", "The GM rejected your Move Nodes request.");
+    return;
+  }
   const result = moveHackerSession(network, payload.sessionId, payload.destinationNodeId, payload.userId);
   if (!result.moved) return;
   await saveNetwork(journal, result.network);
-  ui.notifications.info(`${result.session.hackerName} moved to ${validation.destination.name}.`, { permanent: true });
+  const message = `${result.session.hackerName} moved to ${validation.destination.name}.`;
+  addNetworkNotice(message, "success", "Move Nodes");
+  sendNetworkRequestResult(payload, "success", message);
 }
 
 async function approveJackOut(payload) {
@@ -715,12 +808,21 @@ async function approveJackOut(payload) {
   const journal = findNetworkDocumentByNetworkId(payload.networkId);
   const network = getNetworkData(journal);
   const session = network?.sessions.find((entry) => entry.id === payload.sessionId);
-  if (!journal || !network || !session || session.userId !== payload.userId) return;
-  if (!await confirmAction("Approve Jack Out", `End ${foundry.utils.escapeHTML(session.hackerName)}'s active session?`)) return;
+  if (!journal || !network || !session || session.userId !== payload.userId) {
+    sendNetworkRequestResult(payload, "failed", "That hacker session is no longer active.");
+    return;
+  }
+  if (!await confirmAction("Approve Jack Out", `End ${foundry.utils.escapeHTML(session.hackerName)}'s active session?`)) {
+    addNetworkNotice(`Jack Out rejected for ${session.hackerName}.`, "warning", "Jack Out");
+    sendNetworkRequestResult(payload, "rejected", "The GM rejected your Jack Out request.");
+    return;
+  }
   const result = endHackerSession(network, session.id, payload.userId);
   if (!result.ended) return;
   await saveNetwork(journal, result.network);
-  ui.notifications.info(`${session.hackerName} jacked out.`, { permanent: true });
+  const message = `${session.hackerName} jacked out.`;
+  addNetworkNotice(message, "success", "Jack Out");
+  sendNetworkRequestResult(payload, "success", message);
 }
 
 function sendProgramExecutionResult(payload, status, message) {
@@ -739,6 +841,58 @@ function pruneProgramRequestStates() {
   }
 }
 
+function pruneCopyFileRequestStates() {
+  while (copyFileRequestStates.size > 200) {
+    copyFileRequestStates.delete(copyFileRequestStates.keys().next().value);
+  }
+}
+
+async function approveCopyFile(payload) {
+  if (game.users.activeGM?.id !== game.user.id) return;
+  const requestId = String(payload.requestId || "");
+  if (!requestId) return;
+  if (copyFileRequestStates.has(requestId)) {
+    sendNetworkRequestResult(payload, "failed", "This Copy File request was already handled.");
+    return;
+  }
+  copyFileRequestStates.set(requestId, "pending");
+  pruneCopyFileRequestStates();
+
+  const user = game.users.get(payload.userId);
+  const journal = findNetworkDocumentByNetworkId(payload.networkId);
+  const network = getNetworkData(journal);
+  const session = network?.sessions.find(
+    (entry) => entry.userId === payload.userId && entry.jackedIn,
+  );
+  const node = findNode(network, session?.currentNodeId);
+  const datafile = node?.datafiles.find((entry) => entry.id === payload.datafileId);
+  if (!user || !journal || !network || !session || !node || !datafile?.revealed || datafile.copied) {
+    const message = "Copy File was rejected because the session or datafile is no longer valid.";
+    copyFileRequestStates.set(requestId, "failed");
+    addNetworkNotice(message, "warning", "Copy File");
+    sendNetworkRequestResult(payload, "failed", message);
+    return;
+  }
+
+  const approved = await confirmAction(
+    "Approve Copy File",
+    `${foundry.utils.escapeHTML(user.name)} requests <strong>${foundry.utils.escapeHTML(datafile.name)}</strong> from ${foundry.utils.escapeHTML(node.name)}. Mark this datafile as copied?`,
+  );
+  if (!approved) {
+    copyFileRequestStates.set(requestId, "rejected");
+    addNetworkNotice(`Copy File rejected for ${user.name}.`, "warning", "Copy File");
+    sendNetworkRequestResult(payload, "rejected", "The GM rejected your Copy File request.");
+    return;
+  }
+
+  datafile.copied = true;
+  await saveNetwork(journal, network);
+  copyFileRequestStates.set(requestId, "complete");
+  const message = `${datafile.name} was copied successfully.`;
+  addNetworkNotice(`${user.name}: ${message}`, "success", "Copy File");
+  sendNetworkRequestResult(payload, "success", message);
+}
+
 function queueProgramExecution(task) {
   const queued = programExecutionQueue.then(task, task);
   programExecutionQueue = queued.catch(() => undefined);
@@ -746,7 +900,7 @@ function queueProgramExecution(task) {
 }
 
 async function resolveProgramExecutionRequest(payload) {
-  if (!programRequestIsFresh(payload.requestedAt)) {
+  if (!programRequestIsFresh(payload.receivedAt)) {
     return { valid: false, reason: "This Run Program request expired. Send a new request." };
   }
 
@@ -869,7 +1023,7 @@ async function executeApprovedProgram(payload) {
       createdProgram = null;
     }
     sendProgramExecutionResult(payload, "success", `${source.name} ran successfully. The GM must adjudicate its effect.`);
-    ui.notifications.info(`${hacker.name} ran ${source.name}.`, { permanent: true });
+    addNetworkNotice(`${hacker.name} ran ${source.name}.`, "success", "Run Program");
   } catch (error) {
     if (accessUpdated) {
       await hacker.update({ "system.access.value": resources.hackerAccess }).catch(() => undefined);
@@ -881,17 +1035,21 @@ async function executeApprovedProgram(payload) {
 
 async function approveProgramExecution(payload) {
   if (game.users.activeGM?.id !== game.user.id) return;
-  const requestId = String(payload.requestId || "");
+  // Request age is measured from receipt by the active GM. Player and GM
+  // computers can have different clocks, so the player's timestamp is not an
+  // authoritative expiry clock.
+  const gmPayload = { ...payload, receivedAt: Date.now() };
+  const requestId = String(gmPayload.requestId || "");
   if (!requestId) return;
   if (programRequestStates.has(requestId)) {
-    sendProgramExecutionResult(payload, "failed", "This Run Program request was already handled.");
+    sendProgramExecutionResult(gmPayload, "failed", "This Run Program request was already handled.");
     return;
   }
   programRequestStates.set(requestId, "pending");
   pruneProgramRequestStates();
 
   try {
-    const resolved = await resolveProgramExecutionRequest(payload);
+    const resolved = await resolveProgramExecutionRequest(gmPayload);
     if (!resolved.valid) throw new Error(resolved.reason);
     const { user, network, session, node, hacker, cyberdeck, verb, subject, resources } = resolved;
     const programName = `${verb.name} ${subject.name}`;
@@ -901,17 +1059,18 @@ async function approveProgramExecution(payload) {
     );
     if (!approved) {
       programRequestStates.set(requestId, "rejected");
-      sendProgramExecutionResult(payload, "rejected", `The GM rejected ${programName}.`);
+      sendProgramExecutionResult(gmPayload, "rejected", `The GM rejected ${programName}.`);
+      addNetworkNotice(`${programName} rejected for ${user.name}.`, "warning", "Run Program");
       return;
     }
-    await queueProgramExecution(() => executeApprovedProgram(payload));
+    await queueProgramExecution(() => executeApprovedProgram(gmPayload));
     programRequestStates.set(requestId, "complete");
   } catch (error) {
     programRequestStates.set(requestId, "failed");
     const message = error instanceof Error ? error.message : "Program execution failed.";
     console.error(`${MODULE_ID} | Network program execution failed`, error);
-    ui.notifications.error(message, { permanent: true });
-    sendProgramExecutionResult(payload, "failed", message);
+    addNetworkNotice(message, "error", "Run Program");
+    sendProgramExecutionResult(gmPayload, "failed", message);
   } finally {
     renderOpenNetworkConsole();
   }
@@ -959,14 +1118,30 @@ function handleNetworkSocket(payload) {
   }
 
   if (payload.type === "programExecutionResult" && payload.targetUserId === game.user.id) {
-    const method = payload.status === "success" ? "info" : payload.status === "rejected" ? "warn" : "error";
-    ui.notifications[method](payload.message || "Run Program request updated.", { permanent: true });
+    addNetworkNotice(
+      payload.message || "Run Program request updated.",
+      networkStatusLevel(payload.status),
+      "Run Program",
+    );
     renderOpenNetworkConsole();
+    return;
+  }
+
+  if (payload.type === "networkRequestResult" && payload.targetUserId === game.user.id) {
+    const action = PLAYER_ACTIONS.find((entry) => entry.id === payload.actionId);
+    addNetworkNotice(
+      payload.message || "Network request updated.",
+      networkStatusLevel(payload.status),
+      action?.label || "Network Request",
+    );
     return;
   }
 
   if (payload.type === "sessionRequest" && game.user.isGM) {
     if (game.users.activeGM?.id !== game.user.id) return;
+    const userName = game.users.get(payload.userId)?.name ?? "A player";
+    const action = PLAYER_ACTIONS.find((entry) => entry.id === payload.actionId);
+    addNetworkNotice(`${userName} requests ${action?.label ?? "a session action"}.`, "info", "Pending Request");
     if (payload.actionId === "jackIn") void approveJackIn(payload);
     else if (payload.actionId === "moveNodes") void approveSessionMove(payload);
     else if (payload.actionId === "jackOut") void approveJackOut(payload);
@@ -976,17 +1151,20 @@ function handleNetworkSocket(payload) {
   if (payload.type === "actionRequest" && game.user.isGM) {
     if (game.users.activeGM?.id !== game.user.id) return;
     if (payload.actionId === "runProgram") {
+      addNetworkNotice(`${game.users.get(payload.userId)?.name ?? "A player"} requests Run a Program.`, "info", "Pending Request");
       void approveProgramExecution(payload);
+      return;
+    }
+    if (payload.actionId === "copyFile") {
+      addNetworkNotice(`${game.users.get(payload.userId)?.name ?? "A player"} requests Copy File.`, "info", "Pending Request");
+      void approveCopyFile(payload);
       return;
     }
     const user = game.users.get(payload.userId);
     const userName = user?.name ?? "A player";
     const nodeSuffix = payload.nodeName ? ` at ${payload.nodeName}` : "";
     const detailSuffix = payload.detail ? `: ${payload.detail}` : "";
-    ui.notifications.info(
-      `${userName} requests ${payload.actionLabel}${nodeSuffix}${detailSuffix}`,
-      { permanent: true },
-    );
+    addNetworkNotice(`${userName} requests ${payload.actionLabel}${nodeSuffix}${detailSuffix}`, "info", "Pending Request");
   }
 }
 
@@ -1286,6 +1464,8 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
     const context = await super._prepareContext(options);
     context.enabled = isNetworkConsoleEnabled();
     context.isGM = game.user.isGM;
+    context.networkNotices = networkNotices.map((notice) => ({ ...notice }));
+    context.hasNetworkNotices = context.networkNotices.length > 0;
 
     if (!context.enabled) return context;
 
@@ -1330,6 +1510,7 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
     context.activeSessions = displaySessions;
     context.hasActiveSessions = displaySessions.length > 0;
     context.currentSession = displaySessions[0] ?? null;
+    context.playerConnected = !game.user.isGM && Boolean(context.currentSession);
     context.graph = graph;
     context.nodeCount = network.nodes.length;
     context.connectionCount = network.connections.length;
@@ -1358,6 +1539,14 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
     context.selectedConnection = selectedConnection
       ? {
           ...selectedConnection,
+          barrierState: selectedConnection.barrierLocked
+            ? "locked"
+            : selectedConnection.barrier
+              ? "unlocked"
+              : "none",
+          barrierNone: !selectedConnection.barrier,
+          barrierUnlocked: selectedConnection.barrier && !selectedConnection.barrierLocked,
+          barrierLockedSelected: selectedConnection.barrierLocked,
           label: connectionLabel(selectedConnection, network),
           nodeOptions: network.nodes.map((node) => ({
             id: node.id,
@@ -1879,6 +2068,8 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
     const node = findNode(network, target.dataset.nodeId);
     if (!journal || !network || !node) return;
     const escaped = (value) => foundry.utils.escapeHTML(String(value ?? ""));
+    const sourceNode = findNode(network, sourceId);
+    const defaultTarget = candidates[0];
     const data = await waitForFormDialog({
       title: `${node.name}: Details and Notes`,
       content: `
@@ -1989,13 +2180,16 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
       return;
     }
 
+    const sourceNode = findNode(network, data.source);
+    const targetNode = findNode(network, data.target);
+    const barrierState = ["unlocked", "locked"].includes(data.barrierState) ? data.barrierState : "none";
     const connection = {
       id: foundry.utils.randomID(),
       source: data.source,
       target: data.target,
-      revealed: data.revealed === "on",
-      barrier: data.barrier === "on",
-      barrierLocked: data.barrier === "on" && data.barrierLocked === "on",
+      revealed: Boolean(sourceNode?.revealed && targetNode?.revealed && data.revealed === "on"),
+      barrier: barrierState !== "none",
+      barrierLocked: barrierState === "locked",
       oneWay: data.oneWay === "on",
       gmNotes: String(data.gmNotes || "").trim(),
     };
@@ -2027,7 +2221,7 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
         </div>
         <div class="form-group">
           <label>Revealed to Players</label>
-          <input type="checkbox" name="revealed">
+          <input type="checkbox" name="revealed"${sourceNode?.revealed && defaultTarget?.revealed ? " checked" : ""}>
         </div>
       `,
     });
@@ -2036,11 +2230,12 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
       ui.notifications.warn("Those nodes are already connected.");
       return;
     }
+    const targetNode = findNode(network, data.target);
     const connection = {
       id: foundry.utils.randomID(),
       source: sourceId,
       target: data.target,
-      revealed: data.revealed === "on",
+      revealed: Boolean(sourceNode?.revealed && targetNode?.revealed && data.revealed === "on"),
       barrier: false,
       barrierLocked: false,
       oneWay: false,
@@ -2072,11 +2267,14 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
       return;
     }
 
+    const sourceNode = findNode(network, data.source);
+    const targetNode = findNode(network, data.target);
+    const barrierState = ["unlocked", "locked"].includes(data.barrierState) ? data.barrierState : "none";
     connection.source = data.source;
     connection.target = data.target;
-    connection.revealed = data.revealed === "on";
-    connection.barrier = data.barrier === "on";
-    connection.barrierLocked = connection.barrier && data.barrierLocked === "on";
+    connection.revealed = Boolean(sourceNode?.revealed && targetNode?.revealed && data.revealed === "on");
+    connection.barrier = barrierState !== "none";
+    connection.barrierLocked = barrierState === "locked";
     connection.oneWay = data.oneWay === "on";
     connection.gmNotes = String(data.gmNotes || "").trim();
     await saveNetwork(journal, network);
@@ -2107,12 +2305,15 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
       ui.notifications.warn("Those nodes are already connected.");
       return;
     }
+    const sourceNode = findNode(network, data.source);
+    const targetNode = findNode(network, data.target);
+    const barrierState = ["unlocked", "locked"].includes(data.barrierState) ? data.barrierState : "none";
     connection.source = data.source;
     connection.target = data.target;
-    connection.revealed = data.revealed === "on";
+    connection.revealed = Boolean(sourceNode?.revealed && targetNode?.revealed && data.revealed === "on");
     connection.oneWay = data.oneWay === "on";
-    connection.barrier = data.barrier === "on";
-    connection.barrierLocked = connection.barrier && data.barrierLocked === "on";
+    connection.barrier = barrierState !== "none";
+    connection.barrierLocked = barrierState === "locked";
     connection.gmNotes = String(data.gmNotes || "").trim();
     await saveNetwork(journal, network);
     ui.notifications.info("Connection saved.");
@@ -2459,6 +2660,9 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
     const result = endHackerSession(network, session.id);
     if (!result.ended) return;
     await saveNetwork(journal, result.network);
+    const message = `The GM ended ${session.hackerName}'s Network Console session.`;
+    addNetworkNotice(message, "success", "Jack Out");
+    sendNetworkRequestResult({ userId: session.userId, actionId: "jackOut" }, "success", message);
     this.render();
   }
 
@@ -2492,21 +2696,21 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
         hackerUuid: selected.hacker.uuid, cyberdeckUuid: selected.cyberdeck.uuid,
         connectionType: connection.connectionType,
       });
-      ui.notifications.info("Jack In request sent to the GM.", { permanent: true });
+      addNetworkNotice("Jack In request sent to the GM.", "info", "Jack In");
       return;
     }
 
     if (action.id === "moveNodes") {
       if (!currentSession) {
-        ui.notifications.warn("Jack In before requesting movement.");
+        addNetworkNotice("Jack In before requesting movement.", "warning", "Move Nodes");
         return;
       }
       if (currentSession.connectionType === "wireless") {
-        ui.notifications.warn("Wireless hacker sessions cannot Move Nodes.");
+        addNetworkNotice("Wireless hacker sessions cannot Move Nodes.", "warning", "Move Nodes");
         return;
       }
       if (!node || node.id === currentSession.currentNodeId) {
-        ui.notifications.warn("Select a directly connected destination node first.");
+        addNetworkNotice("Select a directly connected destination node first.", "warning", "Move Nodes");
         return;
       }
       game.socket.emit(SOCKET_NAME, {
@@ -2514,20 +2718,20 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
         networkId: network.id, sessionId: currentSession.id,
         destinationNodeId: node.id,
       });
-      ui.notifications.info("Move Nodes request sent to the GM.", { permanent: true });
+      addNetworkNotice("Move Nodes request sent to the GM.", "info", "Move Nodes");
       return;
     }
 
     if (action.id === "jackOut") {
       if (!currentSession) {
-        ui.notifications.warn("No active hacker session is available.");
+        addNetworkNotice("No active hacker session is available.", "warning", "Jack Out");
         return;
       }
       game.socket.emit(SOCKET_NAME, {
         type: "sessionRequest", actionId: "jackOut", userId: game.user.id,
         networkId: network.id, sessionId: currentSession.id,
       });
-      ui.notifications.info("Jack Out request sent to the GM.", { permanent: true });
+      addNetworkNotice("Jack Out request sent to the GM.", "info", "Jack Out");
       return;
     }
 
@@ -2535,15 +2739,18 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
     let program = null;
     if (action.id === "runProgram") {
       if (!currentSession) {
-        ui.notifications.warn("Jack In before running a program.");
+        addNetworkNotice("Jack In before running a program.", "warning", "Run Program");
         return;
       }
       const currentNode = findNode(network, currentSession.currentNodeId);
       if (!currentNode) {
-        ui.notifications.error("Your current network node is no longer available.");
+        addNetworkNotice("Your current network node is no longer available.", "error", "Run Program");
         return;
       }
-      const selection = await choosePreparedProgram();
+      const selection = await choosePreparedProgram({
+        hackerUuid: currentSession.hackerUuid,
+        cyberdeckUuid: currentSession.cyberdeckUuid,
+      });
       if (!selection) return;
       detail =
         `${selection.hacker.name} using ${selection.cyberdeck.name}: ` +
@@ -2556,6 +2763,34 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
         subjectId: selection.subject.id,
         sessionId: currentSession.id,
       };
+      node = currentNode;
+    }
+
+    let datafileId = "";
+    if (action.id === "copyFile") {
+      if (!currentSession) {
+        addNetworkNotice("Jack In before copying a datafile.", "warning", "Copy File");
+        return;
+      }
+      const currentNode = findNode(network, currentSession.currentNodeId);
+      const available = currentNode?.datafiles.filter((entry) => entry.revealed && !entry.copied) ?? [];
+      if (!available.length) {
+        addNetworkNotice("No uncopied datafile is available on your current node.", "warning", "Copy File");
+        return;
+      }
+      let selected = available[0];
+      if (available.length > 1) {
+        const data = await waitForFormDialog({
+          title: "Request: Copy File",
+          saveLabel: "Send Request",
+          content: `<div class="form-group"><label>Datafile</label><select name="datafileId">${available.map((entry) => `<option value="${foundry.utils.escapeHTML(entry.id)}">${foundry.utils.escapeHTML(entry.name)}</option>`).join("")}</select></div>`,
+        });
+        if (!data?.datafileId) return;
+        selected = available.find((entry) => entry.id === data.datafileId);
+      }
+      if (!selected) return;
+      datafileId = selected.id;
+      detail = selected.name;
       node = currentNode;
     }
 
@@ -2573,8 +2808,13 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
       actionLabel: `${action.label} (${action.economy})`,
       detail,
       program,
+      datafileId,
     });
-    ui.notifications.info(action.id === "runProgram" ? "Run Program request sent to the GM." : `Request sent: ${action.label}`);
+    addNetworkNotice(
+      action.id === "runProgram" ? "Run Program request sent to the GM." : `Request sent: ${action.label}`,
+      "info",
+      action.label,
+    );
   }
 }
 
@@ -3264,6 +3504,11 @@ function nodeDialogContent(node = {}, connectedOptions = "") {
 }
 
 function connectionDialogContent(network, connection = {}) {
+  const isExisting = Boolean(connection.id);
+  const source = findNode(network, connection.source) ?? network.nodes[0];
+  const target = findNode(network, connection.target) ?? network.nodes[1];
+  const revealed = isExisting ? connection.revealed : Boolean(source?.revealed && target?.revealed);
+  const barrierState = connection.barrierLocked ? "locked" : connection.barrier ? "unlocked" : "none";
   return `
     <div class="form-group">
       <label>Source Node</label>
@@ -3275,15 +3520,15 @@ function connectionDialogContent(network, connection = {}) {
     </div>
     <div class="form-group">
       <label>Revealed to Players</label>
-      <input type="checkbox" name="revealed"${connection.revealed ? " checked" : ""}>
+      <input type="checkbox" name="revealed"${revealed ? " checked" : ""}>
     </div>
     <div class="form-group">
-      <label>Connection Has a Barrier</label>
-      <input type="checkbox" name="barrier"${connection.barrier ? " checked" : ""}>
-    </div>
-    <div class="form-group">
-      <label>Barrier Is Locked</label>
-      <input type="checkbox" name="barrierLocked"${connection.barrierLocked ? " checked" : ""}>
+      <label>Barrier</label>
+      <select name="barrierState">
+        <option value="none"${barrierState === "none" ? " selected" : ""}>No Barrier</option>
+        <option value="unlocked"${barrierState === "unlocked" ? " selected" : ""}>Unlocked Barrier</option>
+        <option value="locked"${barrierState === "locked" ? " selected" : ""}>Locked Barrier</option>
+      </select>
     </div>
     <div class="form-group">
       <label>One-Way Connection</label>

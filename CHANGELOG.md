@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.17.1
+
+- Fixed Run Program requests expiring immediately when the player and GM
+  computers have different system clocks by measuring expiry from receipt by
+  the active GM.
+- Restricted Run Program choices to the exact hacker and cyberdeck belonging
+  to the active Network Console session. The most recently chosen cyberdeck is
+  also remembered per client for future Jack In choices.
+- Added a GM approval workflow for Copy File. Approval marks the live revealed
+  datafile as copied, persists it, and reports the result to both users.
+- Added themed, auto-expiring Network Console notices for requests, approvals,
+  rejections, blocked movement, forced disconnects, and Program results, plus a
+  persistent player Connected/Not connected status panel.
+- Simplified connection editing to one No Barrier/Unlocked/Locked selector and
+  defaults new connections between revealed nodes to player-visible while
+  preserving hidden topology.
+
 ## 0.17.0
 
 - Added GM-approved execution for **Run a Program** requests from an active
