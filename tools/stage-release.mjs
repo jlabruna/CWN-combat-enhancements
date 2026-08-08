@@ -5,10 +5,10 @@ import { fileURLToPath } from "node:url";
 const moduleRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const releaseRoot = path.join(moduleRoot, "release");
 const stageRoot = path.join(releaseRoot, "cwn-combat-enhancements");
-const browserUploadRoot = path.join(releaseRoot, "github-upload-v0.16.1");
+const browserUploadRoot = path.join(releaseRoot, "github-upload-v0.17.0");
 const browserDotfilesRoot = path.join(
   releaseRoot,
-  "github-dotfiles-upload-v0.16.1",
+  "github-dotfiles-upload-v0.17.0",
 );
 const files = [
   "CHANGELOG.md",
@@ -35,8 +35,8 @@ for (const directory of directories) {
 const manifest = JSON.parse(
   await fs.readFile(path.join(stageRoot, "module.json"), "utf8"),
 );
-if (manifest.version !== "0.16.1") {
-  throw new Error(`Expected module version 0.16.1 but found ${manifest.version}.`);
+if (manifest.version !== "0.17.0") {
+  throw new Error(`Expected module version 0.17.0 but found ${manifest.version}.`);
 }
 if (
   !manifest.download.endsWith(
@@ -87,7 +87,7 @@ for (const filename of ["en.json"]) {
 }
 for (const filename of [
   "chat-card.mjs",
-  "cwn-combat-enhancements-v0.16.1.mjs",
+  "cwn-combat-enhancements-v0.17.0.mjs",
   "cwn-combat-enhancements.mjs",
   "foundry-compat.mjs",
   "magazine-reload.mjs",
@@ -103,7 +103,7 @@ for (const filename of [
     path.join(browserUploadRoot, "scripts", filename),
   );
 }
-for (const filename of ["network-console.mjs", "network-geometry.mjs", "network-model.mjs", "demon-rules.mjs"]) {
+for (const filename of ["network-console.mjs", "network-geometry.mjs", "network-model.mjs", "demon-rules.mjs", "network-program-rules.mjs"]) {
   await fs.copyFile(
     path.join(moduleRoot, "scripts", "network-console", filename),
     path.join(browserUploadRoot, "scripts", "network-console", filename),
@@ -131,6 +131,7 @@ for (const filename of [
   "network-geometry.test.mjs",
   "network-model.test.mjs",
   "network-session.test.mjs",
+  "network-program-rules.test.mjs",
   "demon-rules.test.mjs",
   "monthly-expenses.test.mjs",
   "npc-drone-attack.test.mjs",
@@ -145,6 +146,10 @@ for (const filename of [
 await fs.copyFile(
   path.join(moduleRoot, "tools", "stage-release.mjs"),
   path.join(browserUploadRoot, "tools", "stage-release.mjs"),
+);
+await fs.copyFile(
+  path.join(moduleRoot, "tools", "run-tests.mjs"),
+  path.join(browserUploadRoot, "tools", "run-tests.mjs"),
 );
 
 await fs.rm(browserDotfilesRoot, { recursive: true, force: true });

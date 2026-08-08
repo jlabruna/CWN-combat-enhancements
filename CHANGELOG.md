@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.17.0
+
+- Added GM-approved execution for **Run a Program** requests from an active
+  Network Console hacker session.
+- Re-resolves the requesting user, hacker, linked cyberdeck, prepared Verb and
+  Subject, live session node, Access, CPU, and target compatibility on the
+  active GM before approval and again immediately before execution.
+- Runs the native SWNR-style Program check with Program, Intelligence, program,
+  cyberdeck, Crown, and physical/wireless session modifiers without changing
+  the cyberdeck's saved wireless setting.
+- Creates persistent running Program Items on the cyberdeck, removes
+  self-terminating programs after their roll, spends Access, and rolls back
+  both Item and Access changes if execution fails.
+- Added duplicate and expired-request protection, serialized execution to
+  prevent resource races, targeted player results, and private semantic chat
+  cards for GM adjudication.
+- Added focused Access, CPU, request-expiry, roll-context, wireless, NPC, and
+  running-program source tests plus a cross-platform test runner.
+
 ## 0.16.1
 
 - Fixed the GitHub Actions test command so the v0.16 active-session release can

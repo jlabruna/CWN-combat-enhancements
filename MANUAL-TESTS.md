@@ -1,11 +1,44 @@
 # Foundry VTT 14.365 / SWNR 2.3.1 manual test checklist
 
-Use a disposable world with CWN Combat Enhancements 0.16.1 enabled. Test with
+Use a disposable world with CWN Combat Enhancements 0.17.0 enabled. Test with
 actor-owned weapon and magazine Items. Give each magazine
 `type: "item"`, `system.uses.consumable: "count"`, positive
 `system.uses.value/max`, and a Magazine Family flag.
 
 Do not claim runtime success until these checks have been completed in Foundry.
+
+## v0.17.0 active Network Console Program execution
+
+Use one active GM and one player who owns a Character hacker with Program and a
+linked cyberdeck containing compatible prepared Verbs and Subjects. Create both
+a physical and wireless hacker session during these checks.
+
+1. Jack In physically and request **Run a Program**. Confirm the GM approval
+   dialog identifies the live hacker, deck, program, current node, Access cost,
+   CPU availability, and Physical connection.
+2. Reject once. Confirm no Access is spent, no running Program is created, no
+   roll occurs, and the player receives a rejection.
+3. Approve a self-terminating Program. Confirm Access is reduced exactly once,
+   its check includes Program and Intelligence, no running Program remains, and
+   the GM/player private chat card says GM adjudication is required.
+4. Approve a persistent Program. Confirm it remains on the cyberdeck and the
+   cyberdeck's available CPU falls by one. Confirm a second persistent Program
+   is refused if no CPU remains.
+5. Repeat wirelessly. Confirm exactly `-2` appears in the check and the
+   cyberdeck's saved wireless setting is unchanged.
+6. While the approval dialog is open, spend the needed Access or remove CPU in
+   another window, then approve. Confirm the final live re-check refuses the
+   request without creating a Program or overspending resources.
+7. Send a request, then delete/unlink the hacker, deck, prepared Verb/Subject,
+   or session before approval. Confirm each stale request fails safely.
+8. Send the same request twice or act on it twice. Confirm only one execution,
+   Access spend, running Item, and chat result occurs.
+9. Confirm the requesting player cannot choose another user's hacker/deck and
+   cannot Run a Program without first Jacking In.
+10. Repeat with an NPC hacker. Confirm the Program check uses the NPC Skill
+    Bonus and does not add a Character Intelligence modifier.
+11. Clear the console and Ctrl+F5 both clients. Repeat one physical and one
+    wireless execution and confirm no relevant red errors.
 
 ## v0.16.1 active Network Console hacker sessions
 
@@ -33,10 +66,8 @@ one compatible Verb and Subject on a deck.
    rejection and disappears from both clients after approval.
 8. Jack In wirelessly. Confirm the session displays the RAW `-2` context and a
    Move Nodes request is blocked before reaching the GM.
-9. With an active session, request **Run a Program**. Confirm the GM notification
-   includes hacker, deck, Verb/Subject, selected node, current session node,
-   connection type, and wireless penalty context. Confirm no roll or Access spend
-   occurs automatically.
+9. With an active session, request **Run a Program**. On v0.17.0, use the
+   execution checklist above instead of expecting a notification-only request.
 10. Jack in two different players, including both on the same node. Confirm the
     GM sees both, each player sees only their own session, and ending one does not
     affect the other.

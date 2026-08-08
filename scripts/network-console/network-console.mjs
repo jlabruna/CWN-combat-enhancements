@@ -56,7 +56,14 @@ import {
   buildDemonDamageMessageData,
   renderDemonActionChatCard,
   renderDemonDamageChatCard,
+  renderNetworkProgramChatCard,
 } from "../chat-card.mjs";
+import {
+  programRequestIsFresh,
+  programResourceState,
+  programRollContext,
+  runningProgramSource,
+} from "./network-program-rules.mjs";
 
 const MODULE_ID = "cwn-combat-enhancements";
 const SOCKET_NAME = `module.${MODULE_ID}`;
@@ -110,6 +117,8 @@ const PLAYER_ACTIONS = [
 
 let networkConsoleApp = null;
 let playerSessionProjection = null;
+const programRequestStates = new Map();
+let programExecutionQueue = Promise.resolve();
 
 Hooks.once("init", () => {
   game.settings.register(MODULE_ID, "enableNetworkConsole", {
@@ -714,6 +723,200 @@ async function approveJackOut(payload) {
   ui.notifications.info(`${session.hackerName} jacked out.`, { permanent: true });
 }
 
+function sendProgramExecutionResult(payload, status, message) {
+  game.socket.emit(SOCKET_NAME, {
+    type: "programExecutionResult",
+    targetUserId: payload.userId,
+    requestId: payload.requestId,
+    status,
+    message,
+  });
+}
+
+function pruneProgramRequestStates() {
+  while (programRequestStates.size > 200) {
+    programRequestStates.delete(programRequestStates.keys().next().value);
+  }
+}
+
+function queueProgramExecution(task) {
+  const queued = programExecutionQueue.then(task, task);
+  programExecutionQueue = queued.catch(() => undefined);
+  return queued;
+}
+
+async function resolveProgramExecutionRequest(payload) {
+  if (!programRequestIsFresh(payload.requestedAt)) {
+    return { valid: false, reason: "This Run Program request expired. Send a new request." };
+  }
+
+  const program = payload.program ?? {};
+  const user = game.users.get(payload.userId);
+  const journal = findNetworkDocumentByNetworkId(payload.networkId);
+  const network = getNetworkData(journal);
+  const session = network?.sessions.find((entry) => entry.id === program.sessionId);
+  if (!user || !journal || !network || !session || session.userId !== payload.userId || !session.jackedIn) {
+    return { valid: false, reason: "The player's active hacker session is no longer valid." };
+  }
+
+  const node = findNode(network, session.currentNodeId);
+  if (!node) return { valid: false, reason: "The hacker's current network node no longer exists." };
+
+  const hacker = await fromUuid(program.hackerUuid);
+  const cyberdeck = await fromUuid(program.cyberdeckUuid);
+  if (!hacker || !cyberdeck || cyberdeck.type !== "cyberdeck") {
+    return { valid: false, reason: "The linked hacker or cyberdeck is no longer available." };
+  }
+  if (!hacker.testUserPermission(user, "OWNER") || getLinkedHacker(cyberdeck)?.uuid !== hacker.uuid) {
+    return { valid: false, reason: "The player no longer controls the hacker linked to that cyberdeck." };
+  }
+  if (session.hackerUuid !== hacker.uuid || session.cyberdeckUuid !== cyberdeck.uuid) {
+    return { valid: false, reason: "The selected hacker and cyberdeck do not match the active session." };
+  }
+
+  const verb = cyberdeck.items.get(program.verbId);
+  const subject = cyberdeck.items.get(program.subjectId);
+  if (verb?.type !== "program" || subject?.type !== "program" || verb.system?.type !== "verb" || subject.system?.type !== "subject") {
+    return { valid: false, reason: "The selected Verb or Subject is no longer loaded on the cyberdeck." };
+  }
+  if (!programsAreCompatible(verb, subject)) {
+    return { valid: false, reason: "The selected Verb and Subject are no longer compatible." };
+  }
+
+  const resources = programResourceState({
+    hacker,
+    cyberdeck,
+    accessCost: verb.system?.accessCost,
+    selfTerminating: verb.system?.selfTerminating,
+  });
+  if (!resources.valid) {
+    const reason = resources.reason === "insufficient-cpu"
+      ? "The cyberdeck has no free CPU for this persistent program."
+      : "The hacker no longer has enough Access to run this program.";
+    return { valid: false, reason };
+  }
+
+  return { valid: true, user, journal, network, session, node, hacker, cyberdeck, verb, subject, resources };
+}
+
+async function executeApprovedProgram(payload) {
+  const resolved = await resolveProgramExecutionRequest(payload);
+  if (!resolved.valid) throw new Error(resolved.reason);
+
+  const { user, network, session, node, hacker, cyberdeck, verb, subject, resources } = resolved;
+  const rollContext = programRollContext({
+    hacker,
+    cyberdeck,
+    verb,
+    subject,
+    wirelessPenalty: session.wirelessPenalty,
+  });
+  const source = runningProgramSource({
+    verb,
+    subject,
+    networkId: network.id,
+    nodeId: node.id,
+    sessionId: session.id,
+    requestId: payload.requestId,
+  });
+
+  let createdProgram = null;
+  let accessUpdated = false;
+  try {
+    [createdProgram] = await cyberdeck.createEmbeddedDocuments("Item", [source]);
+    await hacker.update({ "system.access.value": resources.accessAfter });
+    accessUpdated = true;
+
+    const roll = await new Roll(rollContext.formula, rollContext.data).evaluate();
+    const rollHtml = await roll.render();
+    const content = renderNetworkProgramChatCard({
+      programName: source.name,
+      hackerName: hacker.name,
+      cyberdeckName: cyberdeck.name,
+      networkName: network.name,
+      nodeName: node.name,
+      connectionType: session.connectionType,
+      accessBefore: resources.hackerAccess,
+      accessAfter: resources.accessAfter,
+      accessCost: resources.accessCost,
+      cpuBefore: resources.cpuAvailable,
+      selfTerminating: Boolean(verb.system?.selfTerminating),
+      rollTotal: roll.total,
+      rollFormula: roll.formula,
+      rollHtml,
+      modifierBreakdown: rollContext.breakdown,
+    });
+    await getDocumentClass("ChatMessage").create({
+      speaker: ChatMessage.getSpeaker({ actor: hacker }),
+      content,
+      rolls: [roll],
+      whisper: [...new Set([game.user.id, user.id])],
+      flags: {
+        [MODULE_ID]: {
+          networkProgramExecution: {
+            requestId: payload.requestId,
+            networkId: network.id,
+            nodeId: node.id,
+            sessionId: session.id,
+            programUuid: createdProgram?.uuid ?? "",
+          },
+        },
+      },
+    });
+
+    if (verb.system?.selfTerminating && createdProgram) {
+      await createdProgram.delete();
+      createdProgram = null;
+    }
+    sendProgramExecutionResult(payload, "success", `${source.name} ran successfully. The GM must adjudicate its effect.`);
+    ui.notifications.info(`${hacker.name} ran ${source.name}.`, { permanent: true });
+  } catch (error) {
+    if (accessUpdated) {
+      await hacker.update({ "system.access.value": resources.hackerAccess }).catch(() => undefined);
+    }
+    if (createdProgram) await createdProgram.delete().catch(() => undefined);
+    throw error;
+  }
+}
+
+async function approveProgramExecution(payload) {
+  if (game.users.activeGM?.id !== game.user.id) return;
+  const requestId = String(payload.requestId || "");
+  if (!requestId) return;
+  if (programRequestStates.has(requestId)) {
+    sendProgramExecutionResult(payload, "failed", "This Run Program request was already handled.");
+    return;
+  }
+  programRequestStates.set(requestId, "pending");
+  pruneProgramRequestStates();
+
+  try {
+    const resolved = await resolveProgramExecutionRequest(payload);
+    if (!resolved.valid) throw new Error(resolved.reason);
+    const { user, network, session, node, hacker, cyberdeck, verb, subject, resources } = resolved;
+    const programName = `${verb.name} ${subject.name}`;
+    const approved = await confirmAction(
+      "Approve Run Program",
+      `${foundry.utils.escapeHTML(user.name)} requests <strong>${foundry.utils.escapeHTML(programName)}</strong> for ${foundry.utils.escapeHTML(hacker.name)} using ${foundry.utils.escapeHTML(cyberdeck.name)} at ${foundry.utils.escapeHTML(node.name)} on ${foundry.utils.escapeHTML(network.name)}. Access ${resources.hackerAccess} to ${resources.accessAfter} (cost ${resources.accessCost}); CPU available ${resources.cpuAvailable}; connection ${session.connectionType}.`,
+    );
+    if (!approved) {
+      programRequestStates.set(requestId, "rejected");
+      sendProgramExecutionResult(payload, "rejected", `The GM rejected ${programName}.`);
+      return;
+    }
+    await queueProgramExecution(() => executeApprovedProgram(payload));
+    programRequestStates.set(requestId, "complete");
+  } catch (error) {
+    programRequestStates.set(requestId, "failed");
+    const message = error instanceof Error ? error.message : "Program execution failed.";
+    console.error(`${MODULE_ID} | Network program execution failed`, error);
+    ui.notifications.error(message, { permanent: true });
+    sendProgramExecutionResult(payload, "failed", message);
+  } finally {
+    renderOpenNetworkConsole();
+  }
+}
+
 function handleNetworkSocket(payload) {
   if (!isNetworkConsoleEnabled() || !payload?.type) return;
 
@@ -755,6 +958,13 @@ function handleNetworkSocket(payload) {
     return;
   }
 
+  if (payload.type === "programExecutionResult" && payload.targetUserId === game.user.id) {
+    const method = payload.status === "success" ? "info" : payload.status === "rejected" ? "warn" : "error";
+    ui.notifications[method](payload.message || "Run Program request updated.", { permanent: true });
+    renderOpenNetworkConsole();
+    return;
+  }
+
   if (payload.type === "sessionRequest" && game.user.isGM) {
     if (game.users.activeGM?.id !== game.user.id) return;
     if (payload.actionId === "jackIn") void approveJackIn(payload);
@@ -764,6 +974,11 @@ function handleNetworkSocket(payload) {
   }
 
   if (payload.type === "actionRequest" && game.user.isGM) {
+    if (game.users.activeGM?.id !== game.user.id) return;
+    if (payload.actionId === "runProgram") {
+      void approveProgramExecution(payload);
+      return;
+    }
     const user = game.users.get(payload.userId);
     const userName = user?.name ?? "A player";
     const nodeSuffix = payload.nodeName ? ` at ${payload.nodeName}` : "";
@@ -2254,7 +2469,7 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
     if (!network || !userCanViewProjection(network)) return;
 
     const action = PLAYER_ACTIONS.find((candidate) => candidate.id === target.dataset.requestId);
-    const node = findNode(network, this.selectedNodeId);
+    let node = findNode(network, this.selectedNodeId);
     if (!action) return;
 
     const ownSessions = playerSessionProjection?.networkId === network.id
@@ -2319,6 +2534,15 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
     let detail = "";
     let program = null;
     if (action.id === "runProgram") {
+      if (!currentSession) {
+        ui.notifications.warn("Jack In before running a program.");
+        return;
+      }
+      const currentNode = findNode(network, currentSession.currentNodeId);
+      if (!currentNode) {
+        ui.notifications.error("Your current network node is no longer available.");
+        return;
+      }
       const selection = await choosePreparedProgram();
       if (!selection) return;
       detail =
@@ -2326,25 +2550,20 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
         `${selection.verb.name} ${selection.subject.name} ` +
         `(Access ${selection.accessCost}, check modifier ${selection.skillCheckMod >= 0 ? "+" : ""}${selection.skillCheckMod})`;
       program = {
-        hackerId: selection.hacker.id,
-        hackerName: selection.hacker.name,
-        cyberdeckId: selection.cyberdeck.id,
-        cyberdeckName: selection.cyberdeck.name,
+        hackerUuid: selection.hacker.uuid,
+        cyberdeckUuid: selection.cyberdeck.uuid,
         verbId: selection.verb.id,
-        verbName: selection.verb.name,
         subjectId: selection.subject.id,
-        subjectName: selection.subject.name,
-        accessCost: selection.accessCost,
-        skillCheckMod: selection.skillCheckMod,
-        sessionId: currentSession?.id ?? "",
-        currentNodeId: currentSession?.currentNodeId ?? "",
-        connectionType: currentSession?.connectionType ?? "",
-        wirelessPenalty: currentSession?.wirelessPenalty ?? 0,
+        sessionId: currentSession.id,
       };
+      node = currentNode;
     }
 
+    const requestId = foundry.utils.randomID();
     game.socket.emit(SOCKET_NAME, {
       type: "actionRequest",
+      requestId,
+      requestedAt: Date.now(),
       userId: game.user.id,
       networkId: network.id,
       networkName: network.name,
@@ -2355,7 +2574,7 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
       detail,
       program,
     });
-    ui.notifications.info(`Request sent: ${action.label}`);
+    ui.notifications.info(action.id === "runProgram" ? "Run Program request sent to the GM." : `Request sent: ${action.label}`);
   }
 }
 

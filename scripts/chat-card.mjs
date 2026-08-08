@@ -201,6 +201,57 @@ export function renderDemonDamageChatCard({
   });
 }
 
+export function renderNetworkProgramChatCard({
+  programName = "Program",
+  hackerName = "",
+  cyberdeckName = "",
+  networkName = "",
+  nodeName = "",
+  connectionType = "physical",
+  accessBefore = 0,
+  accessAfter = 0,
+  accessCost = 0,
+  cpuBefore = 0,
+  selfTerminating = false,
+  rollTotal = "",
+  rollFormula = "",
+  rollHtml = "",
+  modifierBreakdown = [],
+} = {}) {
+  const modifierText = modifierBreakdown
+    .filter((entry) => entry && entry.value != null)
+    .map((entry) => `${entry.label}: ${Number.isFinite(Number(entry.value)) && Number(entry.value) >= 0 ? "+" : ""}${entry.value}`)
+    .join("; ");
+  return renderCwnCeChatCard({
+    variants: "network",
+    icon: "fa-solid fa-code",
+    title: `Ran ${programName}`,
+    subtitle: [hackerName, cyberdeckName].filter(Boolean).join(" - "),
+    rows: [
+      { label: "Network", value: networkName },
+      { label: "Node", value: nodeName },
+      { label: "Connection", value: connectionType === "wireless" ? "Wireless" : "Physical" },
+      { label: "Access", value: `${accessBefore} -> ${accessAfter} (cost ${accessCost})` },
+      {
+        label: "CPU",
+        value: selfTerminating
+          ? `${cpuBefore} available; self-terminating`
+          : `${cpuBefore} -> ${Math.max(0, Number(cpuBefore) - 1)}`,
+      },
+      { label: "Modifiers", value: modifierText },
+    ],
+    rolls: [{
+      label: "Program check",
+      key: "program-check",
+      total: rollTotal,
+      formula: rollFormula,
+      html: rollHtml,
+    }],
+    result: "GM adjudication required.",
+    guidance: "Apply the program's target-specific effect after resolving this check.",
+  });
+}
+
 export function buildDemonDamageMessageData({
   moduleId,
   damage,
