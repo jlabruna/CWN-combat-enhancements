@@ -10,7 +10,7 @@ import {
 
 export { CWN_DEMON_TEMPLATES } from "./demon-rules.mjs";
 
-export const NETWORK_SCHEMA_VERSION = 3;
+export const NETWORK_SCHEMA_VERSION = 4;
 export const DEFAULT_CANVAS = Object.freeze({
   width: 920,
   height: 500,
@@ -399,6 +399,27 @@ function normalizeConnection(connection) {
   };
 }
 
+function normalizeHackerSession(value) {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const connectionType = value.connectionType === "wireless" ? "wireless" : "physical";
+  return {
+    id: text(value.id),
+    networkId: text(value.networkId),
+    journalUuid: text(value.journalUuid),
+    userId: text(value.userId),
+    hackerUuid: text(value.hackerUuid),
+    hackerName: text(value.hackerName, "Hacker"),
+    cyberdeckUuid: text(value.cyberdeckUuid),
+    cyberdeckName: text(value.cyberdeckName, "Cyberdeck"),
+    entryNodeId: text(value.entryNodeId),
+    currentNodeId: text(value.currentNodeId),
+    connectionType,
+    jackedIn: bool(value.jackedIn, true),
+    createdAt: integer(value.createdAt, 0, 0),
+    updatedAt: integer(value.updatedAt, 0, 0),
+  };
+}
+
 export function normalizeNetwork(network) {
   const safe = network && typeof network === "object" && !Array.isArray(network) ? network : {};
   const rawNodes = Array.isArray(safe.nodes) ? safe.nodes.filter((node) => node && typeof node === "object" && !Array.isArray(node)) : [];
@@ -421,6 +442,19 @@ export function normalizeNetwork(network) {
       all.findIndex((candidate) =>
         (candidate.source === connection.source && candidate.target === connection.target) ||
         (candidate.source === connection.target && candidate.target === connection.source)) === index);
+  const sessions = (Array.isArray(safe.sessions) ? safe.sessions : [])
+    .map(normalizeHackerSession)
+    .filter((session) =>
+      session?.id &&
+      session.networkId === text(safe.id, "legacy-network") &&
+      session.userId &&
+      session.hackerUuid &&
+      session.cyberdeckUuid &&
+      nodeIds.has(session.entryNodeId) &&
+      nodeIds.has(session.currentNodeId) &&
+      session.jackedIn)
+    .filter((session, index, all) =>
+      all.findIndex((candidate) => candidate.id === session.id) === index);
   return {
     schemaVersion: NETWORK_SCHEMA_VERSION,
     id: text(safe.id, "legacy-network"),
@@ -434,6 +468,7 @@ export function normalizeNetwork(network) {
       : [],
     nodes,
     connections,
+    sessions,
   };
 }
 
@@ -487,6 +522,115 @@ export function sanitizeNetworkForPlayers(network) {
     nodes,
     connections,
   };
+}
+
+export function createHackerSession({
+  id,
+  networkId,
+  journalUuid,
+  userId,
+  hackerUuid,
+  hackerName,
+  cyberdeckUuid,
+  cyberdeckName,
+  nodeId,
+  connectionType = "physical",
+  timestamp = Date.now(),
+} = {}) {
+  return normalizeHackerSession({
+    id,
+    networkId,
+    journalUuid,
+    userId,
+    hackerUuid,
+    hackerName,
+    cyberdeckUuid,
+    cyberdeckName,
+    entryNodeId: nodeId,
+    currentNodeId: nodeId,
+    connectionType,
+    jackedIn: true,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+}
+
+export function sessionsForUser(network, userId) {
+  const normalized = normalizeNetwork(network);
+  const visibleNodeIds = new Set(
+    normalized.nodes.filter((node) => node.revealed).map((node) => node.id),
+  );
+  return normalized.sessions
+    .filter((session) => session.userId === userId && session.jackedIn)
+    .map((session) => ({
+      id: session.id,
+      networkId: session.networkId,
+      userId: session.userId,
+      hackerName: session.hackerName,
+      cyberdeckName: session.cyberdeckName,
+      currentNodeId: visibleNodeIds.has(session.currentNodeId)
+        ? session.currentNodeId
+        : "",
+      connectionType: session.connectionType,
+      wirelessPenalty: session.connectionType === "wireless" ? -2 : 0,
+      jackedIn: true,
+    }));
+}
+
+export function addHackerSession(network, session) {
+  const normalized = normalizeNetwork(network);
+  const candidate = normalizeHackerSession(session);
+  if (!candidate || candidate.networkId !== normalized.id) {
+    return { network: normalized, session: null, added: false, reason: "invalid-session" };
+  }
+  if (!normalized.nodes.some((node) => node.id === candidate.currentNodeId)) {
+    return { network: normalized, session: null, added: false, reason: "missing-node" };
+  }
+  if (normalized.sessions.some((entry) => entry.id === candidate.id)) {
+    return { network: normalized, session: null, added: false, reason: "duplicate-session" };
+  }
+  normalized.sessions.push(candidate);
+  return { network: normalizeNetwork(normalized), session: candidate, added: true, reason: "" };
+}
+
+export function validateHackerMove(network, sessionId, destinationNodeId, userId = "") {
+  const normalized = normalizeNetwork(network);
+  const session = normalized.sessions.find((entry) => entry.id === sessionId);
+  if (!session || !session.jackedIn) return { allowed: false, reason: "missing-session" };
+  if (userId && session.userId !== userId) return { allowed: false, reason: "wrong-user" };
+  if (session.connectionType !== "physical") return { allowed: false, reason: "wireless" };
+  const destination = normalized.nodes.find((node) => node.id === destinationNodeId);
+  if (!destination?.revealed) return { allowed: false, reason: "hidden-destination" };
+  const connection = normalized.connections.find((entry) =>
+    entry.revealed &&
+    ((entry.source === session.currentNodeId && entry.target === destinationNodeId) ||
+      (!entry.oneWay && entry.target === session.currentNodeId && entry.source === destinationNodeId)));
+  if (!connection) return { allowed: false, reason: "not-adjacent" };
+  if (connection.barrier && connection.barrierLocked) {
+    return { allowed: false, reason: "locked-barrier" };
+  }
+  return { allowed: true, reason: "", session, destination, connection };
+}
+
+export function moveHackerSession(network, sessionId, destinationNodeId, userId = "", timestamp = Date.now()) {
+  const normalized = normalizeNetwork(network);
+  const validation = validateHackerMove(normalized, sessionId, destinationNodeId, userId);
+  if (!validation.allowed) return { network: normalized, moved: false, ...validation };
+  const session = normalized.sessions.find((entry) => entry.id === sessionId);
+  session.currentNodeId = destinationNodeId;
+  session.updatedAt = timestamp;
+  return { network: normalizeNetwork(normalized), session, moved: true, allowed: true, reason: "" };
+}
+
+export function endHackerSession(network, sessionId, userId = "") {
+  const normalized = normalizeNetwork(network);
+  const session = normalized.sessions.find((entry) => entry.id === sessionId);
+  if (!session) return { network: normalized, ended: false, reason: "missing-session" };
+  if (userId && session.userId !== userId) {
+    return { network: normalized, ended: false, reason: "wrong-user" };
+  }
+  normalized.sessions = normalized.sessions.filter((entry) => entry.id !== sessionId);
+  return { network: normalizeNetwork(normalized), session, ended: true, reason: "" };
 }
 
 export function createNode({
@@ -611,6 +755,9 @@ export function deleteNodeAndConnections(network, nodeId) {
   normalized.nodes = normalized.nodes.filter((node) => node.id !== nodeId);
   normalized.connections = normalized.connections.filter(
     (connection) => connection.source !== nodeId && connection.target !== nodeId,
+  );
+  normalized.sessions = normalized.sessions.filter(
+    (session) => session.entryNodeId !== nodeId && session.currentNodeId !== nodeId,
   );
   return normalized;
 }

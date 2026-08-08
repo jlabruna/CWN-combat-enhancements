@@ -1,11 +1,56 @@
 # Foundry VTT 14.365 / SWNR 2.3.1 manual test checklist
 
-Use a disposable world with CWN Combat Enhancements 0.15.0 enabled. Test with
+Use a disposable world with CWN Combat Enhancements 0.16.0 enabled. Test with
 actor-owned weapon and magazine Items. Give each magazine
 `type: "item"`, `system.uses.consumable: "count"`, positive
 `system.uses.value/max`, and a Magazine Family flag.
 
 Do not claim runtime success until these checks have been completed in Foundry.
+
+## v0.16.0 active Network Console hacker sessions
+
+Use one active GM and at least two player users. Give each player ownership of a
+Character hacker and an SWNR cyberdeck linked to that hacker. Prepare at least
+one compatible Verb and Subject on a deck.
+
+1. Enable the experimental Network Console, reload, and create or open a network
+   with at least three revealed nodes. Connect two normally, add a locked barrier
+   to another route, and include a revealed one-way connection.
+2. As a player, select a revealed entry node and click **Jack In**. Choose the
+   controlled hacker/deck and Physical. Confirm the GM receives an approval
+   dialog and that rejecting it creates no session.
+3. Repeat and approve. Confirm the hacker avatar appears on the entry node, the
+   player sees their private Physical session status, and the GM sees the full
+   active-session entry with a force-end control.
+4. Close and reopen the console and Ctrl+F5 both clients. Confirm the session and
+   current node persist from the Journal-backed network state.
+5. Select a directly connected revealed node and request **Move Nodes**. Approve
+   as GM and confirm the avatar/current-node status moves exactly one hop.
+6. Confirm movement is refused across a locked barrier, toward a hidden node,
+   across a hidden connection, more than one hop, and backward through a one-way
+   connection. Confirm forward travel through the one-way connection works.
+7. Jack Out and reject once, then approve. Confirm the session remains after the
+   rejection and disappears from both clients after approval.
+8. Jack In wirelessly. Confirm the session displays the RAW `-2` context and a
+   Move Nodes request is blocked before reaching the GM.
+9. With an active session, request **Run a Program**. Confirm the GM notification
+   includes hacker, deck, Verb/Subject, selected node, current session node,
+   connection type, and wireless penalty context. Confirm no roll or Access spend
+   occurs automatically.
+10. Jack in two different players, including both on the same node. Confirm the
+    GM sees both, each player sees only their own session, and ending one does not
+    affect the other.
+11. Switch networks and return. Confirm sessions remain bound to their original
+    network and do not appear on the wrong network.
+12. Use the GM force-end control. Confirm the selected session is removed and its
+    owner receives the updated empty projection.
+13. Repeat Jack In with an unowned hacker, stale/deleted actor or cyberdeck,
+    mismatched hacker/deck link, and hidden entry node. Confirm no session is
+    created and no private UUID or hidden topology reaches the player UI.
+14. Re-test the other player request buttons and Demon controls. Confirm they
+    remain request/manual or GM-directed exactly as documented.
+15. Clear the console, Ctrl+F5, and repeat one physical and one wireless session.
+    Confirm there are no relevant red errors or duplicate approvals.
 
 ## v0.15.0 linked-character drone attacks
 

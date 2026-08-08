@@ -3,12 +3,12 @@ import {
   getCharacterWeaponRollDefaultChanges,
   installNpcWeaponRollCompatibility,
   shouldBindCharacterWeaponRollDefaults,
-} from "./npc-weapon-roll-compat.mjs?v=0.15.0";
+} from "./npc-weapon-roll-compat.mjs?v=0.16.0";
 import {
   getDroneAttackContext,
   installNpcDroneAttackCompatibility,
   stripDroneAttackDescription,
-} from "./npc-drone-attack.mjs?v=0.15.0";
+} from "./npc-drone-attack.mjs?v=0.16.0";
 
 const MODULE_ID = "cwn-combat-enhancements";
 const ATTACK_FLAG = "attack";

@@ -88,7 +88,7 @@ Then enable **CWN Combat Enhancements** in the world's Manage Modules screen and
 ensure SWNR's **CWN Armor** setting is enabled so melee AC is derived.
 
 For a manual Forge import, upload the versioned
-`cwn-combat-enhancements-v0.15.0.zip` release asset. The ZIP must contain
+`cwn-combat-enhancements-v0.16.0.zip` release asset. The ZIP must contain
 `module.json` at its root.
 
 For development testing, target one or more tokens, control the attacker's token,
@@ -262,7 +262,7 @@ Node Description and Private GM Notes now live behind the inspector's
 Datafiles, then Watchdogs. Network Console window size and position are stored
 as a client setting and restored within the current viewport.
 
-The schema is version 3. Old string datafiles, Demons, and Watchdogs are
+The schema is version 4. Old string datafiles, Demons, and Watchdogs are
 preserved as hidden structured legacy entries, and old nodes receive one
 persisted automatic layout. Legacy Verb/Subject choices and free-text commands
 are preserved as legacy programming lines. Migration only updates the module's network flag.
@@ -272,24 +272,39 @@ player-safe datafile fields. Positions are included only for revealed nodes.
 Private notes, Demon HP, skill, commands, and current programs are never
 published.
 
-Players can select a revealed node and send CWN-labelled requests to the GM,
-including **Jack In**, **Move Nodes**, **Look for Hidden Connections**, **Run a
-Program**, **Copy File**, and **Issue Command**.
+Players can select a revealed node and send CWN-labelled requests to the GM.
+**Jack In** creates a durable session only after the active GM approves the
+controlled hacker, linked prepared cyberdeck, entry node, and physical or
+wireless connection. Physical sessions can request a one-hop **Move Nodes**
+across revealed connections; direction and locked barriers are enforced.
+Wireless sessions carry a displayed RAW `-2` context and cannot Move Nodes.
+Players can request **Jack Out**, and the GM can force-end any active session.
+Hacker avatars appear on their current nodes, including multiple hackers on one
+node. **Look for Hidden Connections**, **Run a Program**, **Copy File**, and
+**Issue Command** remain request-only workflows.
+
+Canonical sessions are stored only in the GM Journal network flag. They record
+the requesting user, hacker and cyberdeck UUIDs/names, entry and current nodes,
+connection type, active state, and timestamps. The shared world projection
+contains no sessions. Each player receives a targeted socket projection of only
+their own safe session fields; hidden topology and other players' sessions are
+not included.
 
 **Run a Program** finds SWNR cyberdeck Actors linked to a hacker controlled by
 the requesting player. The player can only choose Verbs and Subjects embedded
 on that cyberdeck, which are the programs prepared on it. The request is blocked
 when the Verb's allowed target types do not match the selected Subject. The GM
 receives the hacker, cyberdeck, combined program, Access cost, check modifier,
-and selected node.
+selected node, active-session current node, and wireless penalty context.
+Checks, Access spending, and program execution remain manual.
 
 The encounter controls remain deliberately GM-directed. The console does not:
 
 - autonomously execute Demon priorities or resolve the player's opposed roll;
 - spend Access or CPU;
-- track avatar locations, cybercombat initiative, or one-hour Demon reboots;
+- track cybercombat initiative or one-hour Demon reboots;
 - create or automate Watchdog actors;
-- enforce server limits or limit a published network to a designated player.
+- enforce server limits or automatically end sessions after connection loss.
 
 The saved network schema already reserves an authorization list so
 designated-player sharing can be added without redesigning saved networks.

@@ -35,7 +35,7 @@
   "CWNCE.Magazine.Chat.Deleted": "depleted magazine deleted",
   "CWNCE.Magazine.Chat.Retained": "partial magazine retained",
   "CWNCE.Network.Settings.Enabled.Name": "Enable experimental Network Console",
-  "CWNCE.Network.Settings.Enabled.Hint": "Adds a shared CWN network-mapping console and launcher. Run a Program validates Verbs and Subjects prepared on a linked SWNR cyberdeck; checks and resource spending remain manual. Requires a reload.",
+  "CWNCE.Network.Settings.Enabled.Hint": "Adds a shared CWN network-mapping console with GM-approved active hacker sessions. Run a Program validates Verbs and Subjects prepared on a linked SWNR cyberdeck; checks and resource spending remain manual. Requires a reload.",
   "CWNCE.Network.Settings.Menu.Name": "Network Console",
   "CWNCE.Network.Settings.Menu.Label": "Open Network Console",
   "CWNCE.Network.Settings.Menu.Hint": "Open the shared Network Console. The experimental Network Console setting must be enabled.",

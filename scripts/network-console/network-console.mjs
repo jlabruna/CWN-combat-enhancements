@@ -5,19 +5,25 @@ import {
 import { applyChatMessageMode } from "../foundry-compat.mjs";
 import {
   autoArrangePositions,
+  addHackerSession,
   clampPosition,
   connectionExists,
   createDemonFromTemplate,
   createNode,
+  createHackerSession,
   CWN_DEMON_TEMPLATES,
   DEFAULT_CANVAS,
   deleteNodeAndConnections,
   duplicateNode,
+  endHackerSession,
   NETWORK_SCHEMA_VERSION,
   normalizeNetwork,
+  moveHackerSession,
   persistDemonToNode,
   replaceDemonOnNode,
   sanitizeNetworkForPlayers,
+  sessionsForUser,
+  validateHackerMove,
 } from "./network-model.mjs";
 import {
   actionRequiresTarget,
@@ -103,6 +109,7 @@ const PLAYER_ACTIONS = [
 ];
 
 let networkConsoleApp = null;
+let playerSessionProjection = null;
 
 Hooks.once("init", () => {
   game.settings.register(MODULE_ID, "enableNetworkConsole", {
@@ -336,6 +343,7 @@ function createNetworkData(name) {
     authorizedUserIds: [],
     nodes: [],
     connections: [],
+    sessions: [],
   };
 }
 
@@ -404,6 +412,19 @@ async function publishNetworkProjection(journal, network = null) {
     "networkProjection",
     projection ? JSON.stringify(projection) : "",
   );
+  if (activeNetwork) publishSessionProjections(activeNetwork);
+}
+
+function publishSessionProjections(network) {
+  if (!game.user.isGM || game.users.activeGM?.id !== game.user.id) return;
+  for (const user of game.users.filter((candidate) => !candidate.isGM && candidate.active)) {
+    game.socket.emit(SOCKET_NAME, {
+      type: "sessionProjectionAvailable",
+      targetUserId: user.id,
+      networkId: network.id,
+      sessions: sessionsForUser(network, user.id),
+    });
+  }
 }
 
 async function ensurePublishedProjection() {
@@ -596,6 +617,103 @@ async function choosePreparedProgram() {
   };
 }
 
+async function chooseHackerAndCyberdeck() {
+  const available = getPreparedCyberdecks();
+  if (!available.length) {
+    ui.notifications.warn("No cyberdeck linked to a hacker you control was found. Assign the hacker on the SWNR cyberdeck sheet first.");
+    return null;
+  }
+  if (available.length === 1) return available[0];
+  const options = available.map(({ hacker, cyberdeck }) =>
+    `<option value="${cyberdeck.uuid}">${foundry.utils.escapeHTML(`${hacker.name} — ${cyberdeck.name}`)}</option>`,
+  ).join("");
+  const data = await waitForFormDialog({
+    title: "Choose Hacker and Cyberdeck",
+    saveLabel: "Choose Cyberdeck",
+    content: `<div class="form-group"><label>Hacker — Cyberdeck</label><select name="cyberdeckUuid" required autofocus>${options}</select></div>`,
+  });
+  return available.find(({ cyberdeck }) => cyberdeck.uuid === data?.cyberdeckUuid) ?? null;
+}
+
+function findNetworkDocumentByNetworkId(networkId) {
+  return listNetworkDocuments().find((journal) => getNetworkData(journal)?.id === networkId) ?? null;
+}
+
+async function resolveSessionActors(payload) {
+  const user = game.users.get(payload.userId);
+  const hacker = await fromUuid(payload.hackerUuid);
+  const cyberdeck = await fromUuid(payload.cyberdeckUuid);
+  if (!user || !hacker || !cyberdeck || cyberdeck.type !== "cyberdeck") return null;
+  if (!hacker.testUserPermission(user, "OWNER")) return null;
+  if (getLinkedHacker(cyberdeck)?.uuid !== hacker.uuid) return null;
+  return { user, hacker, cyberdeck };
+}
+
+async function approveJackIn(payload) {
+  if (game.users.activeGM?.id !== game.user.id) return;
+  const journal = findNetworkDocumentByNetworkId(payload.networkId);
+  const network = getNetworkData(journal);
+  const node = findNode(network, payload.nodeId);
+  const resolved = await resolveSessionActors(payload);
+  if (!journal || !network || !node?.revealed || !resolved) {
+    ui.notifications.warn("A Jack In request was rejected because its hacker, cyberdeck, network, or node is no longer valid.");
+    return;
+  }
+  const connectionType = payload.connectionType === "wireless" ? "wireless" : "physical";
+  const approved = await confirmAction(
+    "Approve Jack In",
+    `${foundry.utils.escapeHTML(resolved.user.name)} requests ${connectionType} access for ${foundry.utils.escapeHTML(resolved.hacker.name)} using ${foundry.utils.escapeHTML(resolved.cyberdeck.name)} at ${foundry.utils.escapeHTML(node.name)}.${connectionType === "wireless" ? " Wireless access carries the RAW −2 context and cannot Move Nodes." : ""}`,
+  );
+  if (!approved) {
+    ui.notifications.info(`Jack In rejected for ${resolved.user.name}.`, { permanent: true });
+    return;
+  }
+  const result = addHackerSession(network, createHackerSession({
+    id: foundry.utils.randomID(), networkId: network.id, journalUuid: journal.uuid,
+    userId: resolved.user.id,
+    hackerUuid: resolved.hacker.uuid, hackerName: resolved.hacker.name,
+    cyberdeckUuid: resolved.cyberdeck.uuid, cyberdeckName: resolved.cyberdeck.name,
+    nodeId: node.id, connectionType,
+  }));
+  if (!result.added) {
+    ui.notifications.error(`Could not create hacker session: ${result.reason}.`);
+    return;
+  }
+  await saveNetwork(journal, result.network);
+  ui.notifications.info(`${resolved.hacker.name} jacked in at ${node.name}.`, { permanent: true });
+}
+
+async function approveSessionMove(payload) {
+  if (game.users.activeGM?.id !== game.user.id) return;
+  const journal = findNetworkDocumentByNetworkId(payload.networkId);
+  const network = getNetworkData(journal);
+  if (!journal || !network) return;
+  const validation = validateHackerMove(network, payload.sessionId, payload.destinationNodeId, payload.userId);
+  if (!validation.allowed) {
+    const messages = { wireless: "Wireless hacker sessions cannot Move Nodes.", "locked-barrier": "That route is blocked by a locked barrier.", "not-adjacent": "The destination is not one directly connected hop away.", "hidden-destination": "That destination is not visible to the player." };
+    ui.notifications.warn(messages[validation.reason] ?? "That hacker session cannot make the requested move.", { permanent: true });
+    return;
+  }
+  if (!await confirmAction("Approve Hacker Movement", `Move ${foundry.utils.escapeHTML(validation.session.hackerName)} to ${foundry.utils.escapeHTML(validation.destination.name)}?`)) return;
+  const result = moveHackerSession(network, payload.sessionId, payload.destinationNodeId, payload.userId);
+  if (!result.moved) return;
+  await saveNetwork(journal, result.network);
+  ui.notifications.info(`${result.session.hackerName} moved to ${validation.destination.name}.`, { permanent: true });
+}
+
+async function approveJackOut(payload) {
+  if (game.users.activeGM?.id !== game.user.id) return;
+  const journal = findNetworkDocumentByNetworkId(payload.networkId);
+  const network = getNetworkData(journal);
+  const session = network?.sessions.find((entry) => entry.id === payload.sessionId);
+  if (!journal || !network || !session || session.userId !== payload.userId) return;
+  if (!await confirmAction("Approve Jack Out", `End ${foundry.utils.escapeHTML(session.hackerName)}'s active session?`)) return;
+  const result = endHackerSession(network, session.id, payload.userId);
+  if (!result.ended) return;
+  await saveNetwork(journal, result.network);
+  ui.notifications.info(`${session.hackerName} jacked out.`, { permanent: true });
+}
+
 function handleNetworkSocket(payload) {
   if (!isNetworkConsoleEnabled() || !payload?.type) return;
 
@@ -605,6 +723,15 @@ function handleNetworkSocket(payload) {
       type: "projectionAvailable",
       targetUserId: payload.requesterId,
     });
+    const activeNetwork = getNetworkData(getActiveNetworkDocument());
+    if (activeNetwork) {
+      game.socket.emit(SOCKET_NAME, {
+        type: "sessionProjectionAvailable",
+        targetUserId: payload.requesterId,
+        networkId: activeNetwork.id,
+        sessions: sessionsForUser(activeNetwork, payload.requesterId),
+      });
+    }
     return;
   }
 
@@ -613,6 +740,26 @@ function handleNetworkSocket(payload) {
     payload.targetUserId === game.user.id
   ) {
     renderOpenNetworkConsole();
+    return;
+  }
+
+  if (
+    payload.type === "sessionProjectionAvailable" &&
+    payload.targetUserId === game.user.id
+  ) {
+    playerSessionProjection = {
+      networkId: String(payload.networkId || ""),
+      sessions: Array.isArray(payload.sessions) ? payload.sessions : [],
+    };
+    renderOpenNetworkConsole();
+    return;
+  }
+
+  if (payload.type === "sessionRequest" && game.user.isGM) {
+    if (game.users.activeGM?.id !== game.user.id) return;
+    if (payload.actionId === "jackIn") void approveJackIn(payload);
+    else if (payload.actionId === "moveNodes") void approveSessionMove(payload);
+    else if (payload.actionId === "jackOut") void approveJackOut(payload);
     return;
   }
 
@@ -628,7 +775,7 @@ function handleNetworkSocket(payload) {
   }
 }
 
-function buildGraph(network, showHidden) {
+function buildGraph(network, showHidden, sessions = []) {
   if (!network) return { width: DEFAULT_CANVAS.width, height: DEFAULT_CANVAS.height, nodes: [], connections: [] };
 
   const nodes = network.nodes.filter((node) => showHidden || node.revealed);
@@ -656,8 +803,17 @@ function buildGraph(network, showHidden) {
       (node.demons?.length ?? 0) * 24 +
       240),
   );
-  const positioned = nodes.map((node) =>
-    decorateNode(node, node.position.x, node.position.y));
+  const positioned = nodes.map((node) => ({
+    ...decorateNode(node, node.position.x, node.position.y),
+    hackerAvatars: sessions
+      .filter((session) => session.currentNodeId === node.id && session.jackedIn)
+      .map((session) => ({
+        id: session.id,
+        name: session.hackerName,
+        connectionType: session.connectionType,
+        wireless: session.connectionType === "wireless",
+      })),
+  }));
 
   const decoratedConnections = connections.map((connection) => {
     return {
@@ -900,6 +1056,7 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
       editWatchdog: this.editWatchdog,
       deleteWatchdog: this.deleteWatchdog,
       toggleWatchdogReveal: this.toggleWatchdogReveal,
+      endSession: this.endSession,
       requestAction: this.requestAction,
     },
   };
@@ -943,8 +1100,21 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
     context.hasNetwork = Boolean(network);
     if (!network) return context;
 
-    const graph = buildGraph(network, game.user.isGM);
+    const visibleSessions = game.user.isGM
+      ? network.sessions
+      : (playerSessionProjection?.networkId === network.id
+          ? playerSessionProjection.sessions
+          : []);
+    const displaySessions = visibleSessions.map((session) => ({
+      ...session,
+      currentNodeName: findNode(network, session.currentNodeId)?.name ?? "Hidden node",
+      entryNodeName: findNode(network, session.entryNodeId)?.name ?? "Hidden node",
+    }));
+    const graph = buildGraph(network, game.user.isGM, displaySessions);
     context.network = network;
+    context.activeSessions = displaySessions;
+    context.hasActiveSessions = displaySessions.length > 0;
+    context.currentSession = displaySessions[0] ?? null;
     context.graph = graph;
     context.nodeCount = network.nodes.length;
     context.connectionCount = network.connections.length;
@@ -2064,6 +2234,19 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
     await toggleNodeEntry(this, target, "watchdogs", "watchdogId");
   }
 
+  static async endSession(_event, target) {
+    if (!game.user.isGM) return;
+    const journal = getActiveNetworkDocument();
+    const network = getNetworkData(journal);
+    const session = network?.sessions.find((entry) => entry.id === target.dataset.sessionId);
+    if (!journal || !network || !session) return;
+    if (!await confirmAction("End Hacker Session", `Force ${foundry.utils.escapeHTML(session.hackerName)} to Jack Out?`)) return;
+    const result = endHackerSession(network, session.id);
+    if (!result.ended) return;
+    await saveNetwork(journal, result.network);
+    this.render();
+  }
+
   static async requestAction(_event, target) {
     if (game.user.isGM) return;
     const projection = readPublishedProjection();
@@ -2073,6 +2256,65 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
     const action = PLAYER_ACTIONS.find((candidate) => candidate.id === target.dataset.requestId);
     const node = findNode(network, this.selectedNodeId);
     if (!action) return;
+
+    const ownSessions = playerSessionProjection?.networkId === network.id
+      ? playerSessionProjection.sessions
+      : [];
+    const currentSession = ownSessions[0] ?? null;
+
+    if (action.id === "jackIn") {
+      const selected = await chooseHackerAndCyberdeck();
+      if (!selected || !node) return;
+      const connection = await waitForFormDialog({
+        title: "Request: Jack In",
+        saveLabel: "Send Request",
+        content: `<p>Entry node: <strong>${foundry.utils.escapeHTML(node.name)}</strong></p><div class="form-group"><label>Connection</label><select name="connectionType"><option value="physical">Physical</option><option value="wireless">Wireless (RAW −2; cannot Move Nodes)</option></select></div>`,
+      });
+      if (!connection?.connectionType) return;
+      game.socket.emit(SOCKET_NAME, {
+        type: "sessionRequest", actionId: "jackIn", userId: game.user.id,
+        networkId: network.id, nodeId: node.id,
+        hackerUuid: selected.hacker.uuid, cyberdeckUuid: selected.cyberdeck.uuid,
+        connectionType: connection.connectionType,
+      });
+      ui.notifications.info("Jack In request sent to the GM.", { permanent: true });
+      return;
+    }
+
+    if (action.id === "moveNodes") {
+      if (!currentSession) {
+        ui.notifications.warn("Jack In before requesting movement.");
+        return;
+      }
+      if (currentSession.connectionType === "wireless") {
+        ui.notifications.warn("Wireless hacker sessions cannot Move Nodes.");
+        return;
+      }
+      if (!node || node.id === currentSession.currentNodeId) {
+        ui.notifications.warn("Select a directly connected destination node first.");
+        return;
+      }
+      game.socket.emit(SOCKET_NAME, {
+        type: "sessionRequest", actionId: "moveNodes", userId: game.user.id,
+        networkId: network.id, sessionId: currentSession.id,
+        destinationNodeId: node.id,
+      });
+      ui.notifications.info("Move Nodes request sent to the GM.", { permanent: true });
+      return;
+    }
+
+    if (action.id === "jackOut") {
+      if (!currentSession) {
+        ui.notifications.warn("No active hacker session is available.");
+        return;
+      }
+      game.socket.emit(SOCKET_NAME, {
+        type: "sessionRequest", actionId: "jackOut", userId: game.user.id,
+        networkId: network.id, sessionId: currentSession.id,
+      });
+      ui.notifications.info("Jack Out request sent to the GM.", { permanent: true });
+      return;
+    }
 
     let detail = "";
     let program = null;
@@ -2094,6 +2336,10 @@ export class NetworkConsoleApp extends foundry.applications.api.HandlebarsApplic
         subjectName: selection.subject.name,
         accessCost: selection.accessCost,
         skillCheckMod: selection.skillCheckMod,
+        sessionId: currentSession?.id ?? "",
+        currentNodeId: currentSession?.currentNodeId ?? "",
+        connectionType: currentSession?.connectionType ?? "",
+        wirelessPenalty: currentSession?.wirelessPenalty ?? 0,
       };
     }
 

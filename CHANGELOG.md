@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.16.0
+
+- Added durable, GM-authoritative active hacker sessions to the experimental
+  Network Console.
+- Players can request physical or wireless Jack In with a controlled hacker and
+  linked prepared cyberdeck; the active GM approves or rejects the request.
+- Physical sessions can request one-hop movement across revealed connections,
+  respecting direction and locked barriers. Wireless sessions display the RAW
+  `-2` context and cannot Move Nodes.
+- Added per-node hacker avatar markers, private player session status, GM session
+  visibility, player Jack Out requests, and a GM force-end control.
+- Persisted canonical sessions in the GM-only Journal network flag using schema
+  version 4. The shared world projection remains session-free, while targeted
+  socket messages expose only each player's own sanitized sessions.
+- Added current-node and wireless-context details to Run a Program requests
+  without automating checks, Access spending, or program execution.
+- Added focused migration, privacy, ownership, movement, barrier, direction,
+  wireless, cleanup, and multi-session automated coverage.
+
 ## 0.15.0
 
 - Added linked player-character pilot attacks for SWNR Drone actors.

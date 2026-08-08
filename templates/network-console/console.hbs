@@ -81,6 +81,23 @@
                 <span>Demons: {{serverLimits.demons}}</span>
               </div>
 
+              {{#if hasActiveSessions}}
+                <details class="cwnce-editor-section cwnce-session-section" open>
+                  <summary>Active Hacker Sessions <span>{{activeSessions.length}}</span></summary>
+                  <div class="cwnce-session-list">
+                    {{#each activeSessions}}
+                      <article class="cwnce-session-entry">
+                        <div>
+                          <strong><i class="fa-solid fa-user-secret"></i> {{hackerName}}</strong>
+                          <small>{{cyberdeckName}} · {{connectionType}} · {{currentNodeName}}</small>
+                        </div>
+                        <button type="button" class="danger" data-action="endSession" data-session-id="{{id}}" title="Force this hacker to jack out"><i class="fa-solid fa-plug-circle-xmark"></i></button>
+                      </article>
+                    {{/each}}
+                  </div>
+                </details>
+              {{/if}}
+
               <details class="cwnce-editor-section cwnce-palette-section" open>
                 <summary>Node Palette</summary>
                 <div class="cwnce-node-palette">
@@ -186,6 +203,11 @@
                     {{#each demons}}
                       <span class="cwnce-node-demon {{#unless revealed}}is-hidden{{/unless}} {{#if isFragged}}is-fragged{{/if}}">
                         <i class="fa-solid fa-ghost"></i> {{name}}
+                      </span>
+                    {{/each}}
+                    {{#each hackerAvatars}}
+                      <span class="cwnce-node-avatar {{#if wireless}}is-wireless{{/if}}" title="{{name}} — {{connectionType}} connection">
+                        <i class="fa-solid fa-user"></i> {{name}}
                       </span>
                     {{/each}}
                   </button>
@@ -306,6 +328,13 @@
                     {{/each}}
                   </section>
                 {{else}}
+                  {{#if currentSession}}
+                    <section class="cwnce-player-session">
+                      <strong><i class="fa-solid fa-user-secret"></i> Jacked in as {{currentSession.hackerName}}</strong>
+                      <span>{{currentSession.connectionType}} · {{currentSession.currentNodeName}}</span>
+                      {{#if currentSession.wirelessPenalty}}<small>Wireless hacking penalty: {{currentSession.wirelessPenalty}}</small>{{/if}}
+                    </section>
+                  {{/if}}
                   <dl>
                     <dt>State</dt><dd>{{selectedNode.stateLabel}}</dd>
                     {{#if selectedNode.description}}<dt>Description</dt><dd>{{selectedNode.description}}</dd>{{/if}}
@@ -323,7 +352,7 @@
                       </button>
                     {{/each}}
                   </div>
-                  <p class="prototype-note">Requests notify the GM. Run a Program uses prepared Verbs and Subjects. This console does not roll checks, spend Access, execute programs, or change Alert automatically.</p>
+                  <p class="prototype-note">Jack In, Move Nodes, and Jack Out use GM-approved active sessions. Other requests notify the GM. Run a Program uses prepared Verbs and Subjects but does not roll checks, spend Access, or execute programs automatically.</p>
                 {{/if}}
               {{else}}
                 <div class="cwnce-network-empty compact"><i class="fa-solid fa-arrow-pointer"></i><p>Select a node or connection to inspect it.</p></div>
